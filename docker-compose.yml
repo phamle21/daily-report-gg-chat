@@ -1,0 +1,32 @@
+networks:
+  daily-report:
+    driver: bridge
+
+volumes:
+  logs-data:
+  history-data:
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: daily-report-php
+    volumes:
+      - ./public:/var/www/html
+    networks:
+      - daily-report
+    restart: unless-stopped
+  nginx:
+    image: nginx:alpine
+    container_name: daily-report-nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - ./public:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - daily-report
+    depends_on:
+      - php
+    restart: unless-stopped

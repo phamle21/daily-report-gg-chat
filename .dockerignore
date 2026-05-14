@@ -1,0 +1,11 @@
+.git
+.gitignore
+.DS_Store
+.idea
+.vscode
+public/history/*
+!public/history/.gitkeep
+public/logs/*
+!public/logs/.gitkeep
+node_modules
+vendor

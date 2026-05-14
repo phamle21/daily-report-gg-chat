@@ -1,0 +1,30 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment/local secrets
+.env
+.env.*
+!.env.example
+public/config.local.php
+
+# Runtime data
+public/history/*
+!public/history/.gitkeep
+public/logs/*
+!public/logs/.gitkeep
+
+# Dependency/build artifacts
+vendor/
+node_modules/
+dist/
+build/
+coverage/
+
+# Docker/local noise
+*.pid
+*.log
