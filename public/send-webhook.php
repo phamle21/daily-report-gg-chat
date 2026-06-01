@@ -52,10 +52,16 @@ function parseTasks($arr)
     if (is_array($arr)) {
         foreach ($arr as $t) {
             if (!empty($t['content'])) {
+                $progress = isset($t['progress']) ? intval($t['progress']) : '';
+                $estimate = trim($t['estimate'] ?? '');
+                if ($progress === 100) {
+                    $estimate = '';
+                }
+
                 $tasks[] = [
                     'content' => trim($t['content']),
-                    'progress' => isset($t['progress']) ? intval($t['progress']) : '',
-                    'estimate' => $t['estimate'] ?? ''
+                    'progress' => $progress,
+                    'estimate' => $estimate
                 ];
             }
         }
@@ -72,6 +78,13 @@ $note = trim($_POST['note'] ?? '');
 if (count($tasks_today) == 0) {
     echo json_encode(['success' => false, 'message' => 'Cần ít nhất 1 task hôm nay']);
     exit;
+}
+
+foreach ($tasks_today as $task) {
+    if ($task['progress'] !== '' && $task['progress'] < 100 && $task['estimate'] === '') {
+        echo json_encode(['success' => false, 'message' => 'Task hôm nay chưa đạt 100% phải có ngày dự kiến']);
+        exit;
+    }
 }
 
 
@@ -100,7 +113,7 @@ function formatTasks($tasks)
     $out = [];
     foreach ($tasks as $t) {
         $line = "- {$t['content']}";
-        if ($t['progress']) $line .= " (<b style='color:yellow'>{$t['progress']}%</b>)";
+        if ($t['progress'] !== '') $line .= " (<b style='color:yellow'>{$t['progress']}%</b>)";
         if ($t['estimate']) $line .= " - Dự kiến: {$t['estimate']}";
         $out[] = $line;
     }

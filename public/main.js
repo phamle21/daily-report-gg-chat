@@ -129,6 +129,52 @@ $(document).ready(function () {
         </div>`;
     }
 
+    function updateTodayEstimateState($item) {
+        const progress = $item.find('select[name*="[progress]"]').val();
+        const $estimate = $item.find('input[name*="[estimate]"]');
+
+        if (progress === '100') {
+            $estimate.val('').prop('required', false).prop('disabled', true).addClass('bg-zinc-100 text-zinc-400');
+            return;
+        }
+
+        $estimate.prop('disabled', false).toggleClass('bg-zinc-100 text-zinc-400', false);
+        $estimate.prop('required', progress !== '');
+    }
+
+    function validateTodayTasks() {
+        let isValid = true;
+        let firstInvalid = null;
+
+        $('#tasks-today-list .task-today-item').each(function () {
+            const $item = $(this);
+            const content = $item.find('input[name*="[content]"]').val().trim();
+            const progress = $item.find('select[name*="[progress]"]').val();
+            const $estimate = $item.find('input[name*="[estimate]"]');
+
+            updateTodayEstimateState($item);
+            if (content && progress !== '' && Number(progress) < 100 && !$estimate.val()) {
+                isValid = false;
+                firstInvalid = firstInvalid || $estimate;
+            }
+        });
+
+        if (!isValid) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Cần ngày dự kiến',
+                text: 'Task hôm nay chưa đạt 100% phải có ngày dự kiến.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2500
+            });
+            firstInvalid.focus();
+        }
+
+        return isValid;
+    }
+
     // ===== TASK NGÀY MAI =====
     function taskTomorrowHtml(idx) {
         return `<div class="task-tomorrow-item animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
@@ -147,10 +193,13 @@ $(document).ready(function () {
     // ===== INIT =====
     let taskTodayIdx = 0, taskTomorrowIdx = 0;
     $('#tasks-today-list').append(taskTodayHtml(taskTodayIdx++));
+    updateTodayEstimateState($('#tasks-today-list .task-today-item').last());
     $('#add-task-today').click(function () {
         const html = taskTodayHtml(taskTodayIdx++);
         $('#tasks-today-list').append(html);
-        const $lastInput = $('#tasks-today-list .task-today-item').last().find('input[type="text"]');
+        const $lastItem = $('#tasks-today-list .task-today-item').last();
+        updateTodayEstimateState($lastItem);
+        const $lastInput = $lastItem.find('input[type="text"]');
         $lastInput.focus();
     });
     $('#add-task-tomorrow').click(function () {
@@ -169,11 +218,20 @@ $(document).ready(function () {
             if ($parent.children().length === 0) {
                 if ($parent.attr('id') === 'tasks-today-list') {
                     $parent.append(taskTodayHtml(taskTodayIdx++));
+                    updateTodayEstimateState($parent.children().last());
                 } else {
                     $parent.append(taskTomorrowHtml(taskTomorrowIdx++));
                 }
             }
         });
+    });
+
+    $(document).on('change', '.task-today-item select[name*="[progress]"]', function () {
+        updateTodayEstimateState($(this).closest('.task-today-item'));
+    });
+
+    $(document).on('input change', '.task-today-item input[name*="[estimate]"]', function () {
+        updateTodayEstimateState($(this).closest('.task-today-item'));
     });
 
     // ===== Chất lượng =====
@@ -253,6 +311,9 @@ $(document).ready(function () {
         }
         if (!$('#quality').val()) {
             Swal.fire({ icon: 'warning', title: 'Vui lòng chọn chất lượng!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            return;
+        }
+        if (!validateTodayTasks()) {
             return;
         }
 
