@@ -114,13 +114,6 @@ foreach ($files as $file) {
 }
 
 $search = trim($_GET['search'] ?? '');
-if ($search !== '') {
-    $reports = array_values(array_filter($reports, function ($report) use ($search) {
-        return stripos($report['plain'], $search) !== false
-            || stripos($report['project'], $search) !== false
-            || stripos($report['file_date'], $search) !== false;
-    }));
-}
 
 if (isset($_GET['export'], $_GET['file'])) {
     $exportFile = $historyDir . '/' . basename($_GET['file']);
@@ -201,15 +194,13 @@ if (isset($_GET['export'], $_GET['file'])) {
                 </div>
             <?php else: ?>
                 <div class="mb-4 flex items-center justify-between px-1 text-xs text-zinc-500">
-                    <span><?= count($reports) ?> báo cáo</span>
-                    <?php if ($search): ?>
-                        <a href="history.php" class="font-medium text-zinc-900 transition-colors hover:text-zinc-600">Bỏ bộ lọc</a>
-                    <?php endif; ?>
+                    <span id="reportCount"><?= count($reports) ?> báo cáo</span>
+                    <button type="button" id="clearSearch" class="hidden font-medium text-zinc-900 transition-colors hover:text-zinc-600">Bỏ bộ lọc</button>
                 </div>
 
-                <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+                <div id="reportList" class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
                     <?php foreach ($reports as $report): ?>
-                        <div class="border-b border-zinc-100 last:border-b-0">
+                        <div class="history-report border-b border-zinc-100 last:border-b-0" data-search="<?= e(strtolower($report['plain'] . ' ' . $report['project'] . ' ' . $report['file_date'])) ?>">
                             <div class="group flex items-center gap-3 px-5 py-4 transition-colors hover:bg-zinc-50">
                                 <div class="flex h-12 w-12 flex-shrink-0 flex-col items-center justify-center rounded-md border border-zinc-200 bg-zinc-50">
                                     <span class="text-lg font-semibold leading-none text-zinc-950"><?= e($report['day']) ?></span>
@@ -280,6 +271,10 @@ if (isset($_GET['export'], $_GET['file'])) {
                         </div>
                     <?php endforeach; ?>
                 </div>
+                <div id="emptySearch" class="hidden rounded-xl border border-zinc-200 bg-white p-10 text-center shadow-sm">
+                    <p class="mb-2 text-sm font-medium text-zinc-900">Không tìm thấy báo cáo phù hợp</p>
+                    <p class="text-sm text-zinc-500">Thử từ khóa khác hoặc xóa bộ lọc.</p>
+                </div>
             <?php endif; ?>
         </div>
 
@@ -305,19 +300,31 @@ if (isset($_GET['export'], $_GET['file'])) {
                 }
             });
 
-            let debounceTimer;
-            $('#searchInput').on('input', function () {
-                const input = this;
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(function () {
-                    const query = $(input).val().trim();
-                    if (query) {
-                        window.location.href = 'history.php?search=' + encodeURIComponent(query);
-                    } else {
-                        window.location.href = 'history.php';
+            function filterReports() {
+                const query = $('#searchInput').val().trim().toLowerCase();
+                let visibleCount = 0;
+
+                $('.history-report').each(function () {
+                    const isMatch = !query || $(this).data('search').includes(query);
+                    $(this).toggleClass('hidden', !isMatch);
+                    if (isMatch) {
+                        visibleCount++;
                     }
-                }, 300);
+                });
+
+                $('#reportCount').text(visibleCount + ' báo cáo');
+                $('#emptySearch').toggleClass('hidden', visibleCount > 0);
+                $('#reportList').toggleClass('hidden', visibleCount === 0);
+                $('#clearSearch').toggleClass('hidden', !query);
+            }
+
+            $('#searchInput').on('input', filterReports);
+            $('#clearSearch').on('click', function () {
+                $('#searchInput').val('');
+                filterReports();
             });
+
+            filterReports();
         });
     </script>
 </body>
