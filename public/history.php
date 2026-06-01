@@ -1,27 +1,131 @@
 <?php
 date_default_timezone_set('Asia/Ho_Chi_Minh');
+
 $historyDir = __DIR__ . '/history';
-$files = glob($historyDir . '/*.log');
+$files = glob($historyDir . '/*.log') ?: [];
 rsort($files);
 
-// Search/filter
-$search = $_GET['search'] ?? '';
-if ($search) {
-    $filtered = [];
-    foreach ($files as $file) {
-        $content = file_get_contents($file);
-        if (stripos($content, $search) !== false) {
-            $filtered[] = $file;
-        }
-    }
-    $files = $filtered;
+function e($value)
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
-// Export
-if (isset($_GET['export']) && isset($_GET['file'])) {
-    $exportFile = __DIR__ . '/history/' . basename($_GET['file']);
+function historyTextToPlain($text)
+{
+    $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+    $text = strip_tags($text);
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    return trim($text);
+}
+
+function extractSection($text, $startMarker, array $endMarkers)
+{
+    $start = strpos($text, $startMarker);
+    if ($start === false) {
+        return '';
+    }
+
+    $start += strlen($startMarker);
+    $end = strlen($text);
+    foreach ($endMarkers as $marker) {
+        $markerPos = strpos($text, $marker, $start);
+        if ($markerPos !== false && $markerPos < $end) {
+            $end = $markerPos;
+        }
+    }
+
+    return trim(substr($text, $start, $end - $start));
+}
+
+function parseTaskLines($section)
+{
+    $tasks = [];
+    foreach (preg_split('/\n+/', trim($section)) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+
+        $tasks[] = preg_replace('/^-+\s*/', '', $line);
+    }
+
+    return $tasks;
+}
+
+function extractFirstMatch($pattern, $text)
+{
+    return preg_match($pattern, $text, $matches) ? trim($matches[1]) : '';
+}
+
+function parseHistoryEntry($rawEntry, $file)
+{
+    $plain = historyTextToPlain($rawEntry);
+    $headerLine = trim(strtok($plain, "\n") ?: '');
+    $fileDate = basename($file, '.log');
+    $project = 'Report';
+    $sentAt = $fileDate;
+
+    if (preg_match('/^\[Daily Report\]\s+(.*)\s+-\s+([A-Za-z]+,\s+\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})\s+\(GMT\+7\)$/u', $headerLine, $matches)) {
+        $project = trim($matches[1]);
+        $sentAt = trim($matches[2]);
+    }
+
+    $todayTasks = parseTaskLines(extractSection($plain, '*📝 Task hôm nay:*', ['*📅 Task ngày mai:*', '*Chất lượng:*']));
+    $tomorrowTasks = parseTaskLines(extractSection($plain, '*📅 Task ngày mai:*', ['*Chất lượng:*']));
+    $quality = extractFirstMatch('/^\*Chất lượng:\*\s*(.+)$/mu', $plain);
+    $spirit = extractFirstMatch('/^\*Tinh thần:\*\s*(.+)$/mu', $plain);
+    $note = extractFirstMatch('/^\*🗒️ Note:\*\s*(.+)$/mus', $plain);
+
+    return [
+        'id' => md5($file . $rawEntry),
+        'file' => basename($file),
+        'file_date' => $fileDate,
+        'day' => date('d', strtotime($fileDate)),
+        'month' => date('m/Y', strtotime($fileDate)),
+        'project' => $project,
+        'sent_at' => $sentAt,
+        'today_tasks' => $todayTasks,
+        'tomorrow_tasks' => $tomorrowTasks,
+        'quality' => $quality,
+        'spirit' => $spirit,
+        'note' => $note,
+        'plain' => $plain,
+        'task_count' => count($todayTasks) + count($tomorrowTasks),
+    ];
+}
+
+$reports = [];
+foreach ($files as $file) {
+    $content = file_get_contents($file);
+    if ($content === false) {
+        continue;
+    }
+
+    $entries = preg_split('/\n---\n?/', trim($content)) ?: [];
+    foreach ($entries as $entry) {
+        $entry = trim($entry);
+        if ($entry === '') {
+            continue;
+        }
+
+        $reports[] = parseHistoryEntry($entry, $file);
+    }
+}
+
+$search = trim($_GET['search'] ?? '');
+if ($search !== '') {
+    $reports = array_values(array_filter($reports, function ($report) use ($search) {
+        return stripos($report['plain'], $search) !== false
+            || stripos($report['project'], $search) !== false
+            || stripos($report['file_date'], $search) !== false;
+    }));
+}
+
+if (isset($_GET['export'], $_GET['file'])) {
+    $exportFile = $historyDir . '/' . basename($_GET['file']);
     if (file_exists($exportFile)) {
-        header('Content-Type: text/plain');
+        header('Content-Type: text/plain; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . basename($_GET['file']) . '"');
         readfile($exportFile);
         exit;
@@ -64,9 +168,8 @@ if (isset($_GET['export']) && isset($_GET['file'])) {
 
 <body class="min-h-screen bg-background text-foreground antialiased">
     <main class="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,175,55,0.14),transparent_34%),linear-gradient(180deg,#ffffff_0%,#fafafa_42%,#f4f4f5_100%)] px-4 py-8 sm:py-12">
-    <div class="w-full max-w-3xl mx-auto">
+    <div class="w-full max-w-4xl mx-auto">
 
-        <!-- Header -->
         <div class="mb-8 animate-fade-in">
             <div class="flex flex-col gap-5 rounded-2xl border border-zinc-200/80 bg-white/85 p-6 shadow-soft backdrop-blur sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -83,78 +186,96 @@ if (isset($_GET['export']) && isset($_GET['file'])) {
         </div>
 
         <div class="animate-slide-up">
-            <!-- Search + New -->
             <div class="mb-6 flex gap-3">
-                <input type="search" id="searchInput" placeholder="Tìm theo ngày, nội dung..." value="<?= htmlspecialchars($search) ?>"
+                <input type="search" id="searchInput" placeholder="Tìm theo ngày, project, nội dung..." value="<?= e($search) ?>"
                     class="h-10 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" />
                 <a href="index.php" class="hidden h-10 items-center justify-center whitespace-nowrap rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 sm:inline-flex">
                     Tạo mới
                 </a>
             </div>
 
-            <?php if (!$files): ?>
+            <?php if (!$reports): ?>
                 <div class="rounded-xl border border-zinc-200 bg-white p-12 text-center shadow-sm">
                     <p class="mb-2 text-sm font-medium text-zinc-900">Chưa có báo cáo nào</p>
                     <p class="text-sm text-zinc-500">Báo cáo sau khi gửi sẽ xuất hiện tại đây.</p>
                 </div>
             <?php else: ?>
                 <div class="mb-4 flex items-center justify-between px-1 text-xs text-zinc-500">
-                    <span><?= count($files) ?> báo cáo</span>
+                    <span><?= count($reports) ?> báo cáo</span>
                     <?php if ($search): ?>
                         <a href="history.php" class="font-medium text-zinc-900 transition-colors hover:text-zinc-600">Bỏ bộ lọc</a>
                     <?php endif; ?>
                 </div>
 
                 <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
-                    <?php foreach ($files as $file):
-                        $dateStr = basename($file, '.log');
-                        $content = file_get_contents($file);
-                        // Parse date info for display
-                        $lines = explode("\n", trim($content));
-                        $project = '';
-                        $quality = '';
-                        $spirit = '';
-                        $taskCount = 0;
-                        foreach ($lines as $line) {
-                            if (strpos($line, 'Project:') === 0) $project = trim(explode(':', $line)[1]);
-                            if (strpos($line, 'Quality:') === 0) $quality = trim(explode(':', $line)[1]);
-                            if (strpos($line, 'Spirit:') === 0) $spirit = trim(explode(':', $line)[1]);
-                            if (strpos($line, '- ') === 0) $taskCount++;
-                        }
-                        $spiritEmoji = $spirit === '5' ? '🔥' : ($spirit === '4' ? '😃' : ($spirit === '3' ? '😊' : ($spirit === '2' ? '🤒' : '😵')));
-                    ?>
+                    <?php foreach ($reports as $report): ?>
                         <div class="border-b border-zinc-100 last:border-b-0">
                             <div class="group flex items-center gap-3 px-5 py-4 transition-colors hover:bg-zinc-50">
-                                <!-- Date icon -->
                                 <div class="flex h-12 w-12 flex-shrink-0 flex-col items-center justify-center rounded-md border border-zinc-200 bg-zinc-50">
-                                    <span class="text-lg font-semibold leading-none text-zinc-950"><?= substr($dateStr, 8) ?></span>
-                                    <span class="mt-0.5 text-[10px] leading-none text-zinc-500"><?= substr($dateStr, 5, 3) ?></span>
+                                    <span class="text-lg font-semibold leading-none text-zinc-950"><?= e($report['day']) ?></span>
+                                    <span class="mt-0.5 text-[10px] leading-none text-zinc-500"><?= e($report['month']) ?></span>
                                 </div>
 
-                                <!-- Info -->
                                 <div class="min-w-0 flex-1">
-                                    <div class="mb-1 flex items-center gap-2">
-                                        <span class="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800"><?= htmlspecialchars($project) ?></span>
-                                        <span class="text-sm font-medium text-zinc-900"><?= $taskCount ?> tasks</span>
+                                    <div class="mb-1 flex flex-wrap items-center gap-2">
+                                        <span class="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800"><?= e($report['project']) ?></span>
+                                        <span class="text-sm font-medium text-zinc-900"><?= e($report['task_count']) ?> tasks</span>
+                                        <span class="text-xs text-zinc-500"><?= e($report['sent_at']) ?></span>
                                     </div>
-                                    <div class="flex items-center gap-3">
-                                        <span class="text-xs text-zinc-500">Chất lượng: <span class="font-medium text-zinc-800"><?= $quality ?></span></span>
-                                        <span class="text-sm"><?= $spiritEmoji ?></span>
+                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <?php if ($report['quality']): ?>
+                                            <span class="text-xs text-zinc-500">Chất lượng: <span class="font-medium text-zinc-800"><?= e($report['quality']) ?></span></span>
+                                        <?php endif; ?>
+                                        <?php if ($report['spirit']): ?>
+                                            <span class="text-xs text-zinc-500">Tinh thần: <span class="font-medium text-zinc-800"><?= e($report['spirit']) ?></span></span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
 
-                                <!-- Actions -->
                                 <div class="flex flex-shrink-0 items-center gap-1">
-                                    <a href="history.php?export=1&file=<?= urlencode(basename($file)) ?>" class="rounded-md p-2 text-zinc-400 transition-all hover:bg-zinc-100 hover:text-zinc-950" title="Download">
+                                    <a href="history.php?export=1&file=<?= urlencode($report['file']) ?>" class="rounded-md p-2 text-zinc-400 transition-all hover:bg-zinc-100 hover:text-zinc-950" title="Download">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                     </a>
-                                    <span class="toggle-content cursor-pointer rounded-md p-2 text-zinc-400 transition-all hover:bg-zinc-100 hover:text-zinc-950" data-file="<?= htmlspecialchars($dateStr) ?>" title="Chi tiết">
+                                    <button type="button" class="toggle-content rounded-md p-2 text-zinc-400 transition-all hover:bg-zinc-100 hover:text-zinc-950" data-report="<?= e($report['id']) ?>" title="Chi tiết">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                    </span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="hidden content-detail" data-file="<?= htmlspecialchars($dateStr) ?>">
-                                <pre class="max-h-80 overflow-auto whitespace-pre-wrap break-words border-t border-zinc-100 bg-zinc-50 px-5 py-4 font-mono text-xs leading-relaxed text-zinc-600"><?= htmlspecialchars($content) ?></pre>
+
+                            <div class="hidden content-detail border-t border-zinc-100 bg-zinc-50 px-5 py-4" data-report="<?= e($report['id']) ?>">
+                                <div class="grid gap-4 text-sm text-zinc-700 md:grid-cols-2">
+                                    <section>
+                                        <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Task hôm nay</h2>
+                                        <?php if ($report['today_tasks']): ?>
+                                            <ul class="space-y-1.5">
+                                                <?php foreach ($report['today_tasks'] as $task): ?>
+                                                    <li class="rounded-md border border-zinc-200 bg-white px-3 py-2"><?= e($task) ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <p class="text-xs text-zinc-500">Không có dữ liệu.</p>
+                                        <?php endif; ?>
+                                    </section>
+
+                                    <section>
+                                        <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Task ngày mai</h2>
+                                        <?php if ($report['tomorrow_tasks']): ?>
+                                            <ul class="space-y-1.5">
+                                                <?php foreach ($report['tomorrow_tasks'] as $task): ?>
+                                                    <li class="rounded-md border border-zinc-200 bg-white px-3 py-2"><?= e($task) ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <p class="text-xs text-zinc-500">Chưa có kế hoạch.</p>
+                                        <?php endif; ?>
+                                    </section>
+                                </div>
+
+                                <?php if ($report['note']): ?>
+                                    <div class="mt-4 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
+                                        <span class="font-medium text-zinc-900">Note:</span> <?= e($report['note']) ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -172,10 +293,9 @@ if (isset($_GET['export']) && isset($_GET['file'])) {
 
     <script>
         $(document).ready(function () {
-            // Toggle content expand/collapse
             $('.toggle-content').click(function () {
-                const target = $(this).data('file');
-                const $detail = $('.content-detail[data-file="' + target + '"]');
+                const target = $(this).data('report');
+                const $detail = $('.content-detail[data-report="' + target + '"]');
                 $detail.toggleClass('hidden');
                 const $icon = $(this).find('svg');
                 if ($detail.hasClass('hidden')) {
@@ -185,18 +305,18 @@ if (isset($_GET['export']) && isset($_GET['file'])) {
                 }
             });
 
-            // Search/filter
             let debounceTimer;
             $('#searchInput').on('input', function () {
+                const input = this;
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(function () {
-                    const query = $(this).val().trim();
+                    const query = $(input).val().trim();
                     if (query) {
                         window.location.href = 'history.php?search=' + encodeURIComponent(query);
                     } else {
                         window.location.href = 'history.php';
                     }
-                }.bind(this), 300);
+                }, 300);
             });
         });
     </script>
