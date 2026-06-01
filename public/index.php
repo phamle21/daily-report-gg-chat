@@ -70,6 +70,80 @@ function e($value)
         .animate-slide-up { animation: fadeIn 0.45s ease-out 0.08s both; }
         .animate-slide-up-delay { animation: fadeIn 0.45s ease-out 0.16s both; }
         .animate-slide-up-late { animation: fadeIn 0.45s ease-out 0.24s both; }
+        .dr-swal {
+            width: min(92vw, 680px);
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 18px 60px rgba(24, 24, 27, 0.12);
+        }
+        .dr-swal-title {
+            padding: 18px 20px 0;
+            color: #09090b;
+            font-size: 18px;
+            font-weight: 650;
+            letter-spacing: 0;
+            text-align: left;
+        }
+        .dr-swal-html {
+            margin: 0;
+            padding: 14px 20px 0;
+        }
+        .dr-modal-field {
+            min-height: 220px;
+            width: 100%;
+            resize: vertical;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            background: #fff;
+            padding: 12px;
+            color: #18181b;
+            font-size: 13px;
+            line-height: 1.55;
+            box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08);
+            outline: none;
+        }
+        .dr-modal-field:focus {
+            border-color: #18181b;
+            box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.12);
+        }
+        .dr-modal-field[readonly] {
+            min-height: 360px;
+            background: #fafafa;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+        }
+        .dr-modal-actions {
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 16px 20px 20px;
+        }
+        .dr-modal-confirm,
+        .dr-modal-cancel {
+            height: 36px;
+            border-radius: 6px;
+            padding: 0 14px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08);
+        }
+        .dr-modal-confirm {
+            border: 1px solid #18181b;
+            background: #18181b;
+            color: #fff;
+        }
+        .dr-modal-cancel {
+            border: 1px solid #e4e4e7;
+            background: #fff;
+            color: #3f3f46;
+        }
+        .dr-modal-validation {
+            margin: 12px 20px 0;
+            border-radius: 8px;
+            background: #fff7ed;
+            color: #9a3412;
+            font-size: 13px;
+        }
     </style>
 </head>
 
@@ -225,6 +299,10 @@ function e($value)
                     <button type="button" id="bulk-task-today" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
                         Nhập nhiều dòng
+                    </button>
+                    <button type="button" id="ai-task-prompt" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.75 11 7l3.25 1.25L11 9.5l-1.25 3.25L8.5 9.5 5.25 8.25 8.5 7l1.25-3.25ZM16.5 11l.75 2 2 .75-2 .75-.75 2-.75-2-2-.75 2-.75.75-2Z"></path></svg>
+                        Prompt AI
                     </button>
                 </div>
             </div>

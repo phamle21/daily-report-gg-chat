@@ -46,7 +46,7 @@ if (!$projectConfig || !$webhook) {
 }
 
 // ===== Parse tasks =====
-function parseTasks($arr)
+function parseTasks($arr, $withType = false)
 {
     $tasks = [];
     if (is_array($arr)) {
@@ -58,11 +58,17 @@ function parseTasks($arr)
                     $estimate = '';
                 }
 
-                $tasks[] = [
+                $task = [
                     'content' => trim($t['content']),
                     'progress' => $progress,
                     'estimate' => $estimate
                 ];
+                if ($withType) {
+                    $type = $t['type'] ?? 'new';
+                    $task['type'] = $type === 'continue' ? 'continue' : 'new';
+                }
+
+                $tasks[] = $task;
             }
         }
     }
@@ -70,7 +76,7 @@ function parseTasks($arr)
 }
 
 $tasks_today = parseTasks($_POST['tasks_today'] ?? []);
-$tasks_tomorrow = parseTasks($_POST['tasks_tomorrow'] ?? []);
+$tasks_tomorrow = parseTasks($_POST['tasks_tomorrow'] ?? [], true);
 $quality = intval($_POST['quality'] ?? 3); // default 3
 $spirit = intval($_POST['spirit'] ?? 3);   // default 3
 $note = trim($_POST['note'] ?? '');
@@ -108,11 +114,20 @@ $spiritMap = [
 $spiritText = $spiritMap[$spirit] ?? '🙂 Khá';
 
 // ===== Format tasks =====
-function formatTasks($tasks)
+function formatTasks($tasks, $showType = false)
 {
     $out = [];
+    $typeLabels = [
+        'new' => '[New]',
+        'continue' => '[Continue]',
+    ];
     foreach ($tasks as $t) {
-        $line = "- {$t['content']}";
+        $prefix = '';
+        if ($showType && !empty($t['type'])) {
+            $prefix = ($typeLabels[$t['type']] ?? '[New]') . ' ';
+        }
+
+        $line = "- {$prefix}{$t['content']}";
         if ($t['progress'] !== '') $line .= " (<b style='color:yellow'>{$t['progress']}%</b>)";
         if ($t['estimate']) $line .= " - Dự kiến: {$t['estimate']}";
         $out[] = $line;
@@ -124,7 +139,7 @@ function formatTasks($tasks)
 // Set timezone to GMT+7 (Asia/Ho_Chi_Minh)
 date_default_timezone_set('Asia/Ho_Chi_Minh');
 $todayStr = formatTasks($tasks_today);
-$tomorrowStr = formatTasks($tasks_tomorrow);
+$tomorrowStr = formatTasks($tasks_tomorrow, true);
 // Format date with weekday, day/month/year hour:minute
 $date = date('l, d/m/Y H:i');
 $avatar = $projectConfig['avatar'] ?: 'https://www.jrr.jp/wp-content/uploads/2026/04/favicon.png';

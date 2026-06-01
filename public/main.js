@@ -228,6 +228,42 @@ $(document).ready(function () {
         return $emptyItem;
     }
 
+    function getTomorrowDate() {
+        const date = new Date();
+        date.setDate(date.getDate() + 1);
+        return [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0')
+        ].join('-');
+    }
+
+    function getAiTaskPrompt() {
+        return `Bạn là trợ lý tổng hợp daily report.
+
+Dựa vào danh sách commit/task/log công việc trong ngày bên dưới, hãy tổng hợp thành các task ngắn gọn để tôi copy vào form multi tasks.
+
+Yêu cầu output:
+- Chỉ xuất plain text, không giải thích.
+- Mỗi task nằm trên một dòng.
+- Format mỗi dòng:
+  Nội dung task | tiến độ% | ngày dự kiến
+- Nếu task đã hoàn thành thì dùng 100% và KHÔNG thêm ngày dự kiến.
+- Nếu task chưa hoàn thành hoặc còn follow-up thì tiến độ phải nhỏ hơn 100% và PHẢI có ngày dự kiến dạng YYYY-MM-DD.
+- Nội dung task viết ngắn, rõ, bắt đầu bằng issue/ticket nếu có.
+- Gộp các commit/task trùng nội dung thành một dòng.
+- Không bịa thêm task ngoài dữ liệu được cung cấp.
+- Nếu không rõ tiến độ, hãy ước lượng hợp lý:
+  - Hoàn tất/fixed/done/merged: 100%
+  - Đang làm/in progress/partial: 50-80%
+  - Mới bắt đầu/research/debug: 20-40%
+
+Ngày dự kiến mặc định nếu cần: ${getTomorrowDate()}
+
+Dữ liệu hôm nay:
+[PASTE COMMITS/TASKS/NOTES Ở ĐÂY]`;
+    }
+
     function addTodayTask(task) {
         let $item = getEmptyTodayItem();
         if (!$item.length) {
@@ -245,9 +281,14 @@ $(document).ready(function () {
     function taskTomorrowHtml(idx) {
         return `<div class="task-tomorrow-item animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div class="flex w-full gap-2 sm:w-auto">
+                    <select name="tasks_tomorrow[${idx}][type]" class="h-9 w-32 flex-shrink-0 cursor-pointer rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                        <option value="new">New</option>
+                        <option value="continue">Continue</option>
+                    </select>
+                </div>
                 <input type="text" name="tasks_tomorrow[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="Nội dung task..." />
                 <div class="flex w-full gap-2 sm:w-auto">
-                    <span class="flex h-9 flex-shrink-0 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs text-zinc-500">Không tiến độ</span>
                     <button type="button" class="remove-task flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-400 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" title="Xóa">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
@@ -271,19 +312,27 @@ $(document).ready(function () {
     $('#bulk-task-today').click(function () {
         Swal.fire({
             title: 'Nhập nhiều task',
-            input: 'textarea',
-            inputPlaceholder: 'Task A | 100%\nTask B | 70% | 2026-06-03\nTask C',
-            inputAttributes: {
-                rows: 8,
-                spellcheck: 'false'
+            html: `<textarea id="bulkTaskTodayText" class="dr-modal-field" spellcheck="false" placeholder="Task A | 100%
+Task B | 70% | 2026-06-03
+Task C"></textarea>`,
+            buttonsStyling: false,
+            customClass: {
+                popup: 'dr-swal',
+                title: 'dr-swal-title',
+                htmlContainer: 'dr-swal-html',
+                actions: 'dr-modal-actions',
+                confirmButton: 'dr-modal-confirm',
+                cancelButton: 'dr-modal-cancel',
+                validationMessage: 'dr-modal-validation'
             },
             showCancelButton: true,
             confirmButtonText: 'Thêm vào report',
             cancelButtonText: 'Hủy',
-            customClass: {
-                input: 'text-sm'
+            didOpen: function () {
+                $('#bulkTaskTodayText').trigger('focus');
             },
-            preConfirm: function (value) {
+            preConfirm: function () {
+                const value = $('#bulkTaskTodayText').val();
                 const tasks = parseBulkTodayTasks(value);
                 if (!tasks.length) {
                     Swal.showValidationMessage('Nhập ít nhất 1 task.');
@@ -299,6 +348,55 @@ $(document).ready(function () {
 
             result.value.forEach(addTodayTask);
             validateTodayTasks();
+        });
+    });
+    $('#ai-task-prompt').click(function () {
+        const prompt = getAiTaskPrompt();
+        Swal.fire({
+            title: 'Prompt AI tạo multi tasks',
+            html: `<textarea id="aiTaskPromptText" class="dr-modal-field" readonly>${escapeHtml(prompt)}</textarea>`,
+            buttonsStyling: false,
+            customClass: {
+                popup: 'dr-swal',
+                title: 'dr-swal-title',
+                htmlContainer: 'dr-swal-html',
+                actions: 'dr-modal-actions',
+                confirmButton: 'dr-modal-confirm',
+                cancelButton: 'dr-modal-cancel',
+                validationMessage: 'dr-modal-validation'
+            },
+            showCancelButton: true,
+            confirmButtonText: 'Copy prompt',
+            cancelButtonText: 'Đóng',
+            didOpen: function () {
+                $('#aiTaskPromptText').trigger('select');
+            },
+            preConfirm: function () {
+                const value = $('#aiTaskPromptText').val();
+                if (navigator.clipboard && window.isSecureContext) {
+                    return navigator.clipboard.writeText(value).then(function () {
+                        return true;
+                    }).catch(function () {
+                        return false;
+                    });
+                }
+
+                $('#aiTaskPromptText').trigger('select');
+                return document.execCommand('copy');
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            Swal.fire({
+                icon: result.value ? 'success' : 'info',
+                title: result.value ? 'Đã copy prompt' : 'Hãy copy thủ công',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 1800
+            });
         });
     });
     $('#add-task-tomorrow').click(function () {
