@@ -217,10 +217,16 @@ function e($value)
                     </span>
                 </label>
                 <div id="tasks-today-list" class="space-y-2"></div>
-                <button type="button" id="add-task-today" class="mt-2 inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
-                    Thêm task
-                </button>
+                <div class="mt-2 flex flex-wrap gap-2">
+                    <button type="button" id="add-task-today" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
+                        Thêm task
+                    </button>
+                    <button type="button" id="bulk-task-today" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
+                        Nhập nhiều dòng
+                    </button>
+                </div>
             </div>
 
             <!-- Task ngày mai -->

@@ -175,6 +175,72 @@ $(document).ready(function () {
         return isValid;
     }
 
+    function normalizeProgress(value) {
+        const match = String(value || '').match(/\d+/);
+        if (!match) {
+            return '';
+        }
+
+        const progress = Math.max(0, Math.min(100, parseInt(match[0], 10)));
+        return String(Math.floor(progress / 10) * 10);
+    }
+
+    function normalizeDate(value) {
+        const text = String(value || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+            return text;
+        }
+
+        const match = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+        if (!match) {
+            return '';
+        }
+
+        const day = match[1].padStart(2, '0');
+        const month = match[2].padStart(2, '0');
+        return `${match[3]}-${month}-${day}`;
+    }
+
+    function parseBulkTodayTasks(text) {
+        return String(text || '').split(/\r?\n/).map(function (line) {
+            const parts = line.split('|').map(part => part.trim());
+            const content = parts.shift() || '';
+            const progress = normalizeProgress(parts[0] || '');
+            const estimate = progress === '100' ? '' : normalizeDate(parts[1] || '');
+
+            return { content, progress, estimate };
+        }).filter(task => task.content);
+    }
+
+    function getEmptyTodayItem() {
+        let $emptyItem = $();
+        $('#tasks-today-list .task-today-item').each(function () {
+            const $item = $(this);
+            const content = $item.find('input[name*="[content]"]').val().trim();
+            const progress = $item.find('select[name*="[progress]"]').val();
+            const estimate = $item.find('input[name*="[estimate]"]').val();
+            if (!content && !progress && !estimate) {
+                $emptyItem = $item;
+                return false;
+            }
+        });
+
+        return $emptyItem;
+    }
+
+    function addTodayTask(task) {
+        let $item = getEmptyTodayItem();
+        if (!$item.length) {
+            $('#tasks-today-list').append(taskTodayHtml(taskTodayIdx++));
+            $item = $('#tasks-today-list .task-today-item').last();
+        }
+
+        $item.find('input[name*="[content]"]').val(task.content);
+        $item.find('select[name*="[progress]"]').val(task.progress);
+        $item.find('input[name*="[estimate]"]').val(task.estimate);
+        updateTodayEstimateState($item);
+    }
+
     // ===== TASK NGÀY MAI =====
     function taskTomorrowHtml(idx) {
         return `<div class="task-tomorrow-item animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
@@ -201,6 +267,39 @@ $(document).ready(function () {
         updateTodayEstimateState($lastItem);
         const $lastInput = $lastItem.find('input[type="text"]');
         $lastInput.focus();
+    });
+    $('#bulk-task-today').click(function () {
+        Swal.fire({
+            title: 'Nhập nhiều task',
+            input: 'textarea',
+            inputPlaceholder: 'Task A | 100%\nTask B | 70% | 2026-06-03\nTask C',
+            inputAttributes: {
+                rows: 8,
+                spellcheck: 'false'
+            },
+            showCancelButton: true,
+            confirmButtonText: 'Thêm vào report',
+            cancelButtonText: 'Hủy',
+            customClass: {
+                input: 'text-sm'
+            },
+            preConfirm: function (value) {
+                const tasks = parseBulkTodayTasks(value);
+                if (!tasks.length) {
+                    Swal.showValidationMessage('Nhập ít nhất 1 task.');
+                    return false;
+                }
+
+                return tasks;
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            result.value.forEach(addTodayTask);
+            validateTodayTasks();
+        });
     });
     $('#add-task-tomorrow').click(function () {
         const html = taskTomorrowHtml(taskTomorrowIdx++);
