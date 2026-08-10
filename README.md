@@ -10,6 +10,7 @@
 - Tự đánh giá chất lượng công việc và tinh thần.
 - Ghi chú thêm cho report.
 - Sidebar thiết lập sticky để cấu hình project, webhook, logo và Google Form.
+- Submit riêng Google Form chấm công cho từng ngày trong một khoảng, không gửi report Google Chat.
 - Lưu lịch sử report trong `public/history/`.
 
 ## Yêu cầu
@@ -64,6 +65,16 @@ Nếu muốn submit kèm Google Form, bật `Bật gửi kèm Google Form` và n
 
 Nếu không dùng Google Form, tắt checkbox này. Report vẫn gửi lên Google Chat bình thường.
 
+### Submit Google Form bù theo khoảng ngày
+
+Trong sidebar `Thiết lập`, tại mục `Submit Google Form bù`:
+
+1. Chọn `Từ ngày` và `Đến ngày`.
+2. Bấm `Submit các ngày` và xác nhận.
+3. Ứng dụng submit lần lượt tất cả ngày trong khoảng, bao gồm cả ngày bắt đầu và ngày kết thúc.
+
+Luồng này chỉ gửi Google Form chấm công, không gửi Google Chat và không tạo lịch sử report. Mỗi lần hỗ trợ tối đa 31 ngày; cần bật và cấu hình Google Form trước khi sử dụng.
+
 ## Cách dùng
 
 1. Chọn project cần gửi report.
@@ -94,6 +105,7 @@ public/
   config.php         Config template an toàn cho repo
   save-config.php    Lưu thiết lập từ sidebar
   send-webhook.php   Gửi Google Chat và Google Form
+  submit-google-form.php  Chỉ gửi Google Form cho một ngày được chọn
   history/.gitkeep   Giữ thư mục history trong git
   logs/.gitkeep      Giữ thư mục logs trong git
 ```

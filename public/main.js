@@ -570,6 +570,94 @@ Task C"></textarea>`,
         });
     });
 
+    // ===== SUBMIT GOOGLE FORM THEO KHOẢNG NGÀY =====
+    function getDateRange(startValue, endValue) {
+        const dates = [];
+        const current = new Date(`${startValue}T00:00:00`);
+        const end = new Date(`${endValue}T00:00:00`);
+
+        while (current <= end) {
+            dates.push([
+                current.getFullYear(),
+                String(current.getMonth() + 1).padStart(2, '0'),
+                String(current.getDate()).padStart(2, '0')
+            ].join('-'));
+            current.setDate(current.getDate() + 1);
+        }
+
+        return dates;
+    }
+
+    $('#googleFormRangeForm').submit(async function (e) {
+        e.preventDefault();
+
+        const startDate = $('#googleFormStartDate').val();
+        const endDate = $('#googleFormEndDate').val();
+        if (!startDate || !endDate || startDate > endDate) {
+            Swal.fire({ icon: 'warning', title: 'Khoảng ngày không hợp lệ', text: 'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            return;
+        }
+
+        const dates = getDateRange(startDate, endDate);
+        if (dates.length > 31) {
+            Swal.fire({ icon: 'warning', title: 'Khoảng ngày quá dài', text: 'Mỗi lần chỉ submit tối đa 31 ngày.', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            return;
+        }
+
+        const confirmation = await Swal.fire({
+            icon: 'question',
+            title: `Submit Google Form cho ${dates.length} ngày?`,
+            text: 'Thao tác này chỉ gửi form chấm công, không gửi report Google Chat.',
+            showCancelButton: true,
+            confirmButtonText: 'Submit',
+            cancelButtonText: 'Hủy'
+        });
+        if (!confirmation.isConfirmed) {
+            return;
+        }
+
+        const $button = $('#submitGoogleFormRangeBtn');
+        const $text = $('#submitGoogleFormRangeText');
+        $button.prop('disabled', true).addClass('opacity-70 cursor-not-allowed');
+        const succeeded = [];
+        const failed = [];
+
+        for (let index = 0; index < dates.length; index += 1) {
+            const date = dates[index];
+            $text.text(`Đang submit ${index + 1}/${dates.length}...`);
+            try {
+                const response = await $.ajax({
+                    url: 'submit-google-form.php',
+                    method: 'POST',
+                    data: { date },
+                    dataType: 'json'
+                });
+                if (response.success) {
+                    succeeded.push(date);
+                } else {
+                    failed.push({ date, message: response.message || 'Có lỗi xảy ra' });
+                }
+            } catch (error) {
+                failed.push({ date, message: 'Không kết nối được máy chủ' });
+            }
+        }
+
+        $button.prop('disabled', false).removeClass('opacity-70 cursor-not-allowed');
+        $text.text('Submit các ngày');
+
+        if (failed.length === 0) {
+            Swal.fire({ icon: 'success', title: 'Submit hoàn tất', text: `Đã submit thành công ${succeeded.length}/${dates.length} ngày.` });
+            return;
+        }
+
+        const failedDates = failed.map(item => `${item.date.split('-').reverse().join('/')}: ${item.message}`).join('\n');
+        Swal.fire({
+            icon: 'warning',
+            title: `Hoàn tất ${succeeded.length}/${dates.length} ngày`,
+            html: `<p class="mb-2 text-sm">Các ngày chưa submit được:</p><pre class="whitespace-pre-wrap text-left text-xs">${escapeHtml(failedDates)}</pre>`
+        });
+    });
+
     // ===== SAVE SETTINGS =====
     $('#settingsForm').submit(function (e) {
         e.preventDefault();

@@ -259,6 +259,26 @@ function e($value)
                     Lưu thiết lập
                 </button>
             </form>
+
+            <form id="googleFormRangeForm" class="mt-3 space-y-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5">
+                <div>
+                    <div class="text-xs font-semibold text-zinc-900">Submit Google Form bù</div>
+                    <div class="mt-0.5 text-[11px] text-zinc-500">Chỉ gửi form chấm công, không gửi report.</div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="block">
+                        <span class="mb-1 block text-[11px] font-medium text-zinc-600">Từ ngày</span>
+                        <input type="date" name="start_date" id="googleFormStartDate" required class="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-[11px] font-medium text-zinc-600">Đến ngày</span>
+                        <input type="date" name="end_date" id="googleFormEndDate" required class="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                    </label>
+                </div>
+                <button type="submit" id="submitGoogleFormRangeBtn" class="flex h-9 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-button transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                    <span id="submitGoogleFormRangeText">Submit các ngày</span>
+                </button>
+            </form>
         </aside>
 
         <form id="dailyReportForm" class="space-y-3 animate-slide-up">
