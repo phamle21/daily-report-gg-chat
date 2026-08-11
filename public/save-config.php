@@ -56,18 +56,19 @@ $config = [
 ];
 
 $content = "<?php\n\nreturn " . var_export($config, true) . ";\n";
-$primaryFile = __DIR__ . '/config.php';
-$fallbackDir = __DIR__ . '/history';
-$fallbackFile = $fallbackDir . '/app-config.php';
-$file = is_writable($primaryFile) ? $primaryFile : $fallbackFile;
+$runtimeDir = __DIR__ . '/history';
+$file = $runtimeDir . '/app-config.php';
 
-if ($file === $fallbackFile && !is_dir($fallbackDir) && !mkdir($fallbackDir, 0777, true)) {
+if (!is_dir($runtimeDir) && !mkdir($runtimeDir, 0775, true)) {
     echo json_encode(['success' => false, 'message' => 'Không tạo được thư mục history để lưu config']);
     exit;
 }
 
 if (@file_put_contents($file, $content, LOCK_EX) === false) {
-    echo json_encode(['success' => false, 'message' => 'Không ghi được file config']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Không ghi được file config runtime. Hãy kiểm tra volume history-data và quyền ghi của PHP.',
+    ]);
     exit;
 }
 

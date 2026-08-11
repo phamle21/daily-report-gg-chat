@@ -14,6 +14,8 @@ services:
     container_name: daily-report-php
     volumes:
       - ./public:/var/www/html
+      - logs-data:/var/www/html/logs
+      - history-data:/var/www/html/history
     networks:
       - daily-report
     restart: unless-stopped

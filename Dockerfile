@@ -19,14 +19,14 @@ RUN echo "date.timezone = Asia/Ho_Chi_Minh" > /usr/local/etc/php/conf.d/tzone.in
 RUN echo "upload_max_filesize = 10M" >> /usr/local/etc/php/conf.d/uploads.ini
 RUN echo "post_max_size = 10M" >> /usr/local/etc/php/conf.d/uploads.ini
 
-WORKDIR /app
+WORKDIR /var/www/html
 
-COPY --chown=www-data:www-data . /app
+COPY --chown=www-data:www-data public/ /var/www/html/
 
 # Create necessary directories with proper permissions
-RUN mkdir -p /app/public/logs /app/public/history && \
-    chown -R www-data:www-data /app/public/logs /app/public/history && \
-    chmod -R 775 /app/public/logs /app/public/history
+RUN mkdir -p /var/www/html/logs /var/www/html/history && \
+    chown -R www-data:www-data /var/www/html/logs /var/www/html/history && \
+    chmod -R 775 /var/www/html/logs /var/www/html/history
 
 # Expose port
 EXPOSE 9000

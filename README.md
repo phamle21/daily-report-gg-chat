@@ -31,7 +31,7 @@ cd daily-report-gg-chat
 Chạy app:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 Mở app:
@@ -39,6 +39,14 @@ Mở app:
 ```text
 http://localhost:8081
 ```
+
+Docker tự tạo hai named volume để lưu dữ liệu runtime:
+
+- `history-data`: cấu hình đã lưu và lịch sử report.
+- `logs-data`: log PHP và log gửi Google Chat/Google Form.
+
+Vì vậy ứng dụng không phụ thuộc UID/GID của user trên máy host và có thể chạy cùng cách trên Linux,
+macOS hoặc Windows có Docker Desktop. Không cần chạy `chmod 777` cho source.
 
 ## Thiết lập project
 
@@ -112,18 +120,60 @@ public/
 
 ## Config và dữ liệu runtime
 
-`public/config.php` là config template an toàn để commit.
+`public/config.php` là config mặc định an toàn để commit. Ứng dụng không ghi thông tin thật vào file
+này.
 
-Khi lưu thiết lập trong app, hệ thống sẽ ghi config vào:
+Khi bấm `Lưu thiết lập`, hệ thống ghi config runtime vào:
 
-- `public/config.php` nếu PHP có quyền ghi file này.
-- `public/history/app-config.php` nếu `public/config.php` không ghi được.
+- `/var/www/html/history/app-config.php` trong container.
+- File này được giữ trong named volume `history-data` và được ưu tiên khi ứng dụng đọc config.
 
-Các file runtime sau không commit lên git:
+Lịch sử và log cũng nằm trong named volumes, không được commit lên Git và vẫn tồn tại sau khi chạy
+`docker compose down`.
 
-- `public/history/*.log`
-- `public/history/app-config.php`
-- `public/logs/*`
+### Chạy trên máy khác
+
+Trên mỗi máy mới:
+
+```bash
+git clone https://github.com/phamle21/daily-report-gg-chat.git
+cd daily-report-gg-chat
+docker compose up -d --build
+```
+
+Sau đó mở `http://localhost:8081`, nhập thiết lập và bấm `Lưu thiết lập`. Mỗi máy có named volume và
+config riêng; secret không đi theo Git repository.
+
+Nếu muốn chuyển cấu hình/dữ liệu sang máy khác, hãy backup và restore hai named volume thay vì copy
+`public/config.php`.
+
+### Kiểm tra lỗi quyền ghi
+
+Kiểm tra container và quyền của thư mục runtime:
+
+```bash
+docker compose ps
+docker compose exec php id www-data
+docker compose exec php ls -ld /var/www/html/history /var/www/html/logs
+docker compose exec -u www-data php sh -lc 'test -w /var/www/html/history && test -w /var/www/html/logs'
+```
+
+Nếu project đã từng chạy bằng Compose phiên bản cũ, rebuild và tạo lại container để áp dụng mount:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Không dùng `docker compose down -v` để sửa quyền: tùy chọn `-v` xóa toàn bộ cấu hình, lịch sử và log
+đang lưu trong volumes.
+
+Ứng dụng truy cập dữ liệu theo các đường dẫn sau:
+
+| Trong source | Trong container | Nơi lưu thực tế |
+|---|---|---|
+| `public/history/` | `/var/www/html/history/` | Named volume `history-data` |
+| `public/logs/` | `/var/www/html/logs/` | Named volume `logs-data` |
 
 ## Bảo mật
 
