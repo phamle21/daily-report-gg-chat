@@ -390,11 +390,11 @@ function e($value)
                     <div>
                         <label class="mb-2 block text-sm font-medium text-zinc-700">Tinh thần</label>
                         <div id="spirit-list" class="flex flex-wrap gap-2">
-                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="1">😵‍💫</span>
-                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="2">🤒</span>
-                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="3" data-default="true">😊</span>
-                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="4">😃</span>
-                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="5">🔥</span>
+                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="1" title="Kém">😞</span>
+                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="2" title="Trung bình">😐</span>
+                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="3" data-default="true" title="Khá">🙂</span>
+                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="4" title="Tốt">😄</span>
+                            <span class="react-emoji flex h-12 w-12 cursor-pointer items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-xl transition-all hover:border-zinc-300 hover:bg-white" data-value="5" title="Rất tốt">🤩</span>
                         </div>
                         <input type="hidden" name="spirit" id="spirit" required>
                     </div>

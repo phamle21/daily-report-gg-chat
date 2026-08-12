@@ -105,11 +105,11 @@ $qualityMap = [
 $qualityText = $qualityMap[$quality] ?? '✅ Khá – Hoàn thành đúng yêu cầu';
 
 $spiritMap = [
-    1 => '😵‍💫 Kém',
-    2 => '🤒 Trung bình',
-    3 => '😊 Khá',
-    4 => '😃👍Tốt',
-    5 => '🤩 Rất tốt 🔥'
+    1 => '😞 Kém',
+    2 => '😐 Trung bình',
+    3 => '🙂 Khá',
+    4 => '😄 Tốt',
+    5 => '🤩 Rất tốt'
 ];
 $spiritText = $spiritMap[$spirit] ?? '🙂 Khá';
 
