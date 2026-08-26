@@ -1,4 +1,6 @@
 <?php
+session_start();
+date_default_timezone_set('Asia/Ho_Chi_Minh');
 
 // Set response type to JSON
 header('Content-Type: application/json; charset=utf-8');
@@ -28,6 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request']);
     exit;
 }
+if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], (string)($_POST['csrf_token'] ?? ''))) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.']);
+    exit;
+}
 
 // ===== App config =====
 $configFile = file_exists(__DIR__ . '/history/app-config.php')
@@ -52,14 +59,24 @@ function parseTasks($arr, $withType = false)
     if (is_array($arr)) {
         foreach ($arr as $t) {
             if (!empty($t['content'])) {
-                $progress = isset($t['progress']) ? intval($t['progress']) : '';
+                $content = trim((string)$t['content']);
+                if (mb_strlen($content) > 500) {
+                    continue;
+                }
+                $progress = isset($t['progress']) && $t['progress'] !== '' ? intval($t['progress']) : '';
+                if ($progress !== '' && ($progress < 0 || $progress > 100)) {
+                    $progress = '';
+                }
                 $estimate = trim($t['estimate'] ?? '');
+                if ($estimate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $estimate)) {
+                    $estimate = '';
+                }
                 if ($progress === 100) {
                     $estimate = '';
                 }
 
                 $task = [
-                    'content' => trim($t['content']),
+                    'content' => $content,
                     'progress' => $progress,
                     'estimate' => $estimate
                 ];
@@ -79,7 +96,7 @@ $tasks_today = parseTasks($_POST['tasks_today'] ?? []);
 $tasks_tomorrow = parseTasks($_POST['tasks_tomorrow'] ?? [], true);
 $quality = intval($_POST['quality'] ?? 3); // default 3
 $spirit = intval($_POST['spirit'] ?? 3);   // default 3
-$note = trim($_POST['note'] ?? '');
+$note = mb_substr(trim($_POST['note'] ?? ''), 0, 2000);
 
 if (count($tasks_today) == 0) {
     echo json_encode(['success' => false, 'message' => 'Cần ít nhất 1 task hôm nay']);
@@ -89,6 +106,10 @@ if (count($tasks_today) == 0) {
 foreach ($tasks_today as $task) {
     if ($task['progress'] !== '' && $task['progress'] < 100 && $task['estimate'] === '') {
         echo json_encode(['success' => false, 'message' => 'Task hôm nay chưa đạt 100% phải có ngày dự kiến']);
+        exit;
+    }
+    if ($task['estimate'] !== '' && $task['estimate'] < date('Y-m-d')) {
+        echo json_encode(['success' => false, 'message' => 'Ngày dự kiến hoàn thành không được nhỏ hơn hôm nay']);
         exit;
     }
 }
@@ -105,13 +126,13 @@ $qualityMap = [
 $qualityText = $qualityMap[$quality] ?? '✅ Khá – Hoàn thành đúng yêu cầu';
 
 $spiritMap = [
-    1 => '😞 Kém',
-    2 => '😐 Trung bình',
-    3 => '🙂 Khá',
-    4 => '😄 Tốt',
-    5 => '🤩 Rất tốt'
+    1 => '🪫 Cạn pin',
+    2 => '☕ Cần cà phê',
+    3 => '🌤️ Ổn định',
+    4 => '⚡ Đầy năng lượng',
+    5 => '🚀 Bứt phá'
 ];
-$spiritText = $spiritMap[$spirit] ?? '🙂 Khá';
+$spiritText = $spiritMap[$spirit] ?? '🌤️ Ổn định';
 
 // ===== Format tasks =====
 function formatTasks($tasks, $showType = false)
@@ -127,7 +148,8 @@ function formatTasks($tasks, $showType = false)
             $prefix = ($typeLabels[$t['type']] ?? '[New]') . ' ';
         }
 
-        $line = "- {$prefix}{$t['content']}";
+        $content = htmlspecialchars($t['content'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $line = "- {$prefix}{$content}";
         if ($t['progress'] !== '') $line .= " (<b style='color:yellow'>{$t['progress']}%</b>)";
         if ($t['estimate']) $line .= " - Dự kiến: {$t['estimate']}";
         $out[] = $line;
@@ -216,12 +238,14 @@ curl_setopt($ch, CURLOPT_POST, 1);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 curl_setopt($ch, CURLOPT_TIMEOUT, 15);
 $resp = curl_exec($ch);
 $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $curl_error = curl_error($ch);
 curl_close($ch);
+$chatOk = ($httpcode >= 200 && $httpcode < 300);
 
 writeLog("Google Chat HTTP: $httpcode");
 if ($curl_error) writeLog("Google Chat cURL Error: $curl_error");
@@ -280,8 +304,8 @@ if ($submitGoogleForm && !empty($googleFormConfig['url'])) {
         CURLOPT_POSTFIELDS => http_build_query($formData),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 15,
         CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
     ]);
@@ -318,18 +342,21 @@ if (!is_dir($historyDir)) {
     }
 }
 $historyFile = $historyDir . '/' . date('Y-m-d') . '.log';
-if (@file_put_contents($historyFile, $msg . "\n---\n", FILE_APPEND) === false) {
+if ($chatOk && @file_put_contents($historyFile, $msg . "\n---\n", FILE_APPEND | LOCK_EX) === false) {
     echo json_encode(['success' => false, 'message' => 'Không ghi được file lịch sử. Vui lòng kiểm tra quyền ghi thư mục history!']);
     exit;
 }
 
 // ===== Response =====
 writeLog("=== DONE ===");
-$chatOk = ($httpcode >= 200 && $httpcode < 300);
 $formOk = !$submitGoogleForm || ($formHttpCode == 200 || $formHttpCode == 302);
 
 if ($chatOk) {
-    echo json_encode(['success' => true]);
+    echo json_encode([
+        'success' => true,
+        'chat_status' => 'ok',
+        'form_status' => $submitGoogleForm ? ($formOk ? 'ok' : 'failed') : 'skipped',
+    ]);
 } else {
     echo json_encode([
         'success' => false,

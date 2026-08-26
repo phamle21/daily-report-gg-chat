@@ -1,4 +1,5 @@
 <?php
+session_start();
 
 header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Asia/Ho_Chi_Minh');
@@ -30,6 +31,11 @@ function writeGoogleFormLog($message)
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(false, 'Invalid request');
+}
+if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], (string)($_POST['csrf_token'] ?? ''))) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.']);
+    exit;
 }
 
 $configFile = file_exists(__DIR__ . '/history/app-config.php')
@@ -82,8 +88,8 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => http_build_query($formData),
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_SSL_VERIFYPEER => false,
-    CURLOPT_SSL_VERIFYHOST => false,
+    CURLOPT_SSL_VERIFYPEER => true,
+    CURLOPT_SSL_VERIFYHOST => 2,
     CURLOPT_TIMEOUT => 15,
     CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
 ]);

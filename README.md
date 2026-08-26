@@ -9,9 +9,12 @@
 - Thêm task ngày mai.
 - Tự đánh giá chất lượng công việc và tinh thần.
 - Ghi chú thêm cho report.
-- Sidebar thiết lập sticky để cấu hình project, webhook, logo và Google Form.
+- Drawer thiết lập tách khỏi khu vực viết report, tối ưu không gian trên desktop và mobile.
+- Tự động lưu và khôi phục bản nháp report trên trình duyệt.
+- Xem trước nội dung trước khi gửi và hỗ trợ `Ctrl/Cmd + Enter` để gửi nhanh.
 - Submit riêng Google Form chấm công cho từng ngày trong một khoảng, không gửi report Google Chat.
 - Lưu lịch sử report trong `public/history/`.
+- Bảo vệ các thao tác POST bằng CSRF token và xác minh TLS khi gọi dịch vụ ngoài.
 
 ## Yêu cầu
 
@@ -50,7 +53,7 @@ macOS hoặc Windows có Docker Desktop. Không cần chạy `chmod 777` cho sou
 
 ## Thiết lập project
 
-Ở sidebar `Thiết lập`, cấu hình các thông tin cơ bản:
+Mở drawer `Thiết lập` từ nút trên header để cấu hình các thông tin cơ bản:
 
 - `Project mặc định khi mở form`: project được chọn sẵn khi mở trang.
 - `Tên project`: tên hiển thị trong report, ví dụ `JRR`, `Primass`.
@@ -75,7 +78,7 @@ Nếu không dùng Google Form, tắt checkbox này. Report vẫn gửi lên Goo
 
 ### Submit Google Form bù theo khoảng ngày
 
-Trong sidebar `Thiết lập`, tại mục `Submit Google Form bù`:
+Trong drawer `Thiết lập`, tại mục `Submit Google Form bù`:
 
 1. Chọn `Từ ngày` và `Đến ngày`.
 2. Bấm `Submit các ngày` và xác nhận.
