@@ -3,6 +3,9 @@
 .DS_Store
 .idea
 .vscode
+.env
+.env.*
+!.env.example
 public/history/*
 !public/history/.gitkeep
 public/logs/*
