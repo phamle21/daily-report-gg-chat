@@ -321,8 +321,8 @@ function e($value)
                         <p class="mt-1">Dùng link ảnh HTTPS truy cập công khai, mở được khi không đăng nhập. Có thể dùng logo website hoặc ảnh trên CDN; ảnh vuông sẽ hiển thị đẹp nhất trên Google Chat.</p>
                     </section>
                     <section>
-                        <h3 class="font-semibold text-stone-900">Slack Incoming Webhook</h3>
-                        <p class="mt-1">Trong Slack App, bật Incoming Webhooks → Add New Webhook to Workspace → chọn channel. Dán URL vào Incoming Webhook Slack của project rồi lưu thiết lập.</p>
+                        <h3 class="font-semibold text-stone-900">Webhook Slack</h3>
+                        <p class="mt-1">Trong Slack App, bật Incoming Webhooks → Add New Webhook to Workspace → chọn channel. Dán URL vào Webhook Slack của project rồi lưu thiết lập.</p>
                     </section>
                     <p class="rounded-md bg-rose-50 p-2 text-rose-700">Webhook là thông tin bí mật. Không gửi cho người khác hoặc commit URL thật lên Git.</p>
                 </div>
@@ -330,6 +330,11 @@ function e($value)
 
             <form id="settingsForm" class="space-y-2.5">
                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                <div class="settings-card p-3">
+                    <label for="reporterSetting" class="mb-1 block text-sm font-medium text-zinc-900">Người báo cáo</label>
+                    <input name="reporter" id="reporterSetting" maxlength="100" value="<?= e($config['reporter'] ?? '') ?>" class="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm" placeholder="vuong.toan">
+                    <p class="mt-1 text-xs text-zinc-500">Lưu để dùng cho các báo cáo sau. Bắt buộc khi gửi Slack.</p>
+                </div>
                 <div class="settings-card setting-default p-3">
                     <div class="mb-2 flex items-center gap-2 text-xs font-semibold text-violet-900"><span aria-hidden="true">◆</span> Mặc định</div>
                     <label class="mb-1 block text-xs font-medium text-zinc-700">Project mặc định khi mở form</label>
@@ -368,7 +373,7 @@ function e($value)
                                     <input name="projects[webhook][]" class="project-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://chat.googleapis.com/..." value="<?= e($projectConfig['webhook'] ?? '') ?>">
                                 </label>
                                 <label class="mb-1 block">
-                                    <span class="mb-1 block text-[11px] font-medium text-zinc-600">Incoming Webhook Slack</span>
+                                    <span class="mb-1 block text-[11px] font-medium text-zinc-600">Webhook Slack</span>
                                     <input name="projects[slack_webhook][]" class="project-slack-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs" placeholder="https://hooks.slack.com/services/..." value="<?= e($projectConfig['slack_webhook'] ?? '') ?>">
                                 </label>
                                 <label class="block">
@@ -458,12 +463,12 @@ function e($value)
             </form>
         </aside>
 
-        <form id="dailyReportForm" class="mx-auto max-w-4xl space-y-3 animate-slide-up">
+        <form data-reporter="<?= e($config['reporter'] ?? '') ?>" id="dailyReportForm" class="mx-auto max-w-4xl space-y-3 animate-slide-up">
             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
 
             <!-- Project -->
             <div class="rounded-xl border border-violet-200 bg-violet-50/70 p-3 shadow-sm">
-                <div class="grid gap-3 sm:grid-cols-[52px_minmax(0,1fr)] sm:items-center">
+                <div class="grid gap-3 sm:grid-cols-[52px_minmax(0,1fr)_180px] sm:items-center">
                     <div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
                         <img id="projectLogo" class="<?= !empty($selectedProject['avatar']) ? '' : 'hidden' ?> h-full w-full object-cover" src="<?= e($selectedProject['avatar'] ?? '') ?>" alt="">
                         <span id="projectLogoFallback" class="<?= !empty($selectedProject['avatar']) ? 'hidden' : '' ?> text-xs font-semibold text-zinc-500"><?= e(substr($defaultProject, 0, 2)) ?></span>
@@ -476,22 +481,10 @@ function e($value)
                     <?php endforeach; ?>
                         </select>
                     </div>
+                    <label class="block text-sm font-medium text-zinc-900">Ngày báo cáo
+                        <input type="date" name="report_date" id="reportDate" value="<?= e(date('Y-m-d')) ?>" class="mt-1.5 h-9 w-full rounded-md border border-zinc-200 bg-white px-3">
+                    </label>
                 </div>
-            </div>
-
-            <div class="rounded-xl border border-zinc-200 bg-white p-3 space-y-3">
-                <label class="block text-sm font-medium">Kênh gửi
-                    <select name="destination" id="destination" class="h-9 w-full rounded-md border border-zinc-200 bg-white px-3">
-                        <option value="google_chat">Google Chat</option><option value="slack" selected>Slack</option>
-                    </select>
-                </label>
-                <label class="block text-sm font-medium">Người báo cáo (bắt buộc khi gửi Slack)
-                    <input name="reporter" id="reporter" maxlength="100" placeholder="vuong.toan" class="h-9 w-full rounded-md border border-zinc-200 px-3">
-                </label>
-                <label class="block text-sm font-medium">Kết quả hôm nay
-                    <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="w-full rounded-md border border-zinc-200 px-3 py-2" placeholder="Kết quả và chất lượng công việc hôm nay..."></textarea>
-                </label>
-                <p class="text-xs text-zinc-500">Slack: trạng thái theo tiến độ (0%: Chưa bắt đầu; 1–99%: Đang thực hiện; 100%: Hoàn thành). Tinh thần mức 4 hiển thị là Tốt.</p>
             </div>
 
             <!-- Task hôm nay -->
@@ -595,6 +588,11 @@ function e($value)
             </div>
 
             <!-- Note -->
+            <div class="rounded-xl border border-zinc-200 bg-white p-3">
+                <label for="dailyResult" class="mb-2 block text-sm font-medium text-zinc-900">Kết quả hôm nay</label>
+                <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" placeholder="Kết quả và chất lượng công việc trong ngày báo cáo..."></textarea>
+            </div>
+
             <div class="rounded-xl border border-rose-200 bg-rose-50/50 p-3 shadow-sm">
                 <label class="mb-2 block text-sm font-medium text-zinc-900">
                     <span class="flex items-center gap-2">
@@ -606,20 +604,15 @@ function e($value)
                 <textarea name="note" class="min-h-20 w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" rows="2" placeholder="Ghi chú thêm..."></textarea>
             </div>
 
-            <!-- Google Form toggle -->
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <label for="submitGoogleForm" class="cursor-pointer text-sm font-medium text-zinc-900">Submit kèm Google Form</label>
-                        <p class="mt-0.5 text-xs text-zinc-500">Tự động điền form chấm công</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="submitGoogleForm" name="submit_google_form" value="1" <?= !empty($googleForm['enabled']) ? 'checked' : '' ?> class="sr-only peer">
-                        <div class="peer h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-zinc-950 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-zinc-950 peer-focus:ring-offset-2"></div>
-                        <div class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:left-5"></div>
-                    </label>
+            <fieldset class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 shadow-sm">
+                <legend class="px-1 text-sm font-medium text-zinc-900">Submit kèm:</legend>
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" id="submitGoogleForm" name="submit_google_form" value="1" checked class="h-4 w-4">RCNV logtime</label>
+                    <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" id="submitGoogleChat" name="submit_google_chat" value="1" checked class="h-4 w-4">Google Chat</label>
+                    <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" id="submitSlack" name="submit_slack" value="1" class="h-4 w-4">Slack</label>
                 </div>
-            </div>
+                <p class="text-xs text-zinc-500">Chọn ít nhất một mục. Có thể gửi nhiều mục trong cùng một lần.</p>
+            </fieldset>
 
             <!-- Submit -->
             <div class="sticky bottom-3 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-soft backdrop-blur">

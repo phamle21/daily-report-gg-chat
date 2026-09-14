@@ -52,9 +52,9 @@ Bấm `Lưu thiết lập`. Webhook và thông tin thật chỉ được lưu tr
 
 ### Slack
 
-Trong Slack App, bật **Incoming Webhooks**, chọn **Add New Webhook to Workspace** và cấp quyền cho channel cần gửi. Dán URL vào **Incoming Webhook Slack** của project rồi lưu thiết lập.
+Trong Slack App, bật **Incoming Webhooks**, chọn **Add New Webhook to Workspace** và cấp quyền cho channel cần gửi. Dán URL vào **Webhook Slack** của project rồi lưu thiết lập.
 
-Slack là kênh mặc định trên form. Nhập người báo cáo, Issue, loại công việc và kết quả hôm nay. Trạng thái tự tính từ tiến độ; chất lượng mức 4 và tinh thần mức 4 hiển thị **Tốt**. Báo cáo có bốn mục: công việc, tự đánh giá, tinh thần, chia sẻ thêm. Ngày gửi dùng múi giờ Việt Nam.
+RCNV logtime và Google Chat được chọn mặc định; Slack mặc định bỏ chọn. Nhóm **Submit kèm** cho phép chọn độc lập **RCNV logtime**, **Google Chat**, **Slack**, hoặc nhiều mục trong cùng một lần gửi. Kết quả hiển thị riêng từng mục; khi gửi lại sau lỗi một phần, chỉ các mục thất bại còn được chọn. Lưu người báo cáo trong Thiết lập. Chọn ngày báo cáo (mặc định hôm nay); ngày này dùng cho Slack, Google Chat, RCNV logtime và lịch sử. Mỗi dòng công việc có nội dung, loại, tiến độ và ngày dự kiến. Nếu có Issue, nhập mã ở đầu nội dung, ví dụ `#999 Sửa lỗi thêm sản phẩm`. Nhập kết quả hôm nay ngay trên ghi chú. Trạng thái tự tính từ tiến độ; chất lượng mức 4 và tinh thần mức 4 hiển thị **Tốt**. Báo cáo có bốn mục: công việc, tự đánh giá, tinh thần, chia sẻ thêm. Ngày gửi dùng múi giờ Việt Nam.
 
 ### Google Form gửi kèm
 
@@ -67,7 +67,7 @@ Giữ **Submit Google Form bù** để chấm công theo khoảng ngày.
 1. Chọn project.
 2. Nhập ít nhất một task hôm nay.
 3. Chọn tiến độ.
-4. Task dưới 100% phải có ngày dự kiến từ hôm nay trở đi.
+4. Task dưới 100% phải có ngày dự kiến từ ngày báo cáo trở đi.
 5. Thêm task ngày mai nếu cần.
 6. Chọn chất lượng và tinh thần.
 7. Preview rồi bấm `Gửi báo cáo`.

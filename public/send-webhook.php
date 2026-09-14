@@ -44,21 +44,39 @@ $config = file_exists($configFile) ? require $configFile : [];
 $projects = $config['projects'] ?? [];
 $googleFormConfig = $config['google_form'] ?? [];
 
+$reportDate = trim((string)($_POST['report_date'] ?? date('Y-m-d')));
+$reportDay = DateTime::createFromFormat('!Y-m-d', $reportDate);
+if (!$reportDay || $reportDay->format('Y-m-d') !== $reportDate) {
+    echo json_encode(['success' => false, 'message' => 'Ngày báo cáo không hợp lệ']);
+    exit;
+}
+
 $project = $_POST['project'] ?? ($config['default_project'] ?? 'JRR');
 $projectConfig = $projects[$project] ?? null;
-$destination = $_POST['destination'] ?? 'google_chat';
-if (!in_array($destination, ['google_chat', 'slack'], true)) {
-    echo json_encode(['success' => false, 'message' => 'Kênh gửi không hợp lệ']);
+$sendGoogleChat = !empty($_POST['submit_google_chat']);
+$sendSlack = !empty($_POST['submit_slack']);
+$submitGoogleForm = !empty($_POST['submit_google_form']);
+if (!$sendGoogleChat && !$sendSlack && !$submitGoogleForm) {
+    echo json_encode(['success' => false, 'message' => 'Chọn ít nhất một mục trong Submit kèm']);
     exit;
 }
-$channelName = $destination === 'slack' ? 'Slack' : 'Google Chat';
-$webhook = trim($projectConfig[$destination === 'slack' ? 'slack_webhook' : 'webhook'] ?? '');
-if ($destination === 'slack' && $webhook && !preg_match('~^https://hooks\.slack\.com/services/[A-Za-z0-9/_-]+$~D', $webhook)) {
-    echo json_encode(['success' => false, 'message' => 'Incoming Webhook Slack không hợp lệ']);
-    exit;
+$webhooks = [];
+foreach (['google_chat' => $sendGoogleChat, 'slack' => $sendSlack] as $channel => $selected) {
+    if (!$selected) continue;
+    $label = $channel === 'slack' ? 'Slack' : 'Google Chat';
+    $url = trim($projectConfig[$channel === 'slack' ? 'slack_webhook' : 'webhook'] ?? '');
+    if (!$projectConfig || !$url) {
+        echo json_encode(['success' => false, 'message' => "Project chưa cấu hình webhook $label"]);
+        exit;
+    }
+    if ($channel === 'slack' && !preg_match('~^https://hooks\.slack\.com/services/[A-Za-z0-9/_-]+$~D', $url)) {
+        echo json_encode(['success' => false, 'message' => 'Webhook Slack không hợp lệ']);
+        exit;
+    }
+    $webhooks[$channel] = $url;
 }
-if (!$projectConfig || !$webhook) {
-    echo json_encode(['success' => false, 'message' => "Project không hợp lệ hoặc chưa cấu hình webhook $channelName"]);
+if ($submitGoogleForm && (empty($googleFormConfig['enabled']) || empty($googleFormConfig['url']))) {
+    echo json_encode(['success' => false, 'message' => 'Vui lòng bật và cấu hình RCNV logtime trong Thiết lập']);
     exit;
 }
 
@@ -87,8 +105,8 @@ function parseTasks($arr, $withType = false)
 
                 $task = [
                     'content' => $content,
-                    'issue' => mb_substr(trim($t['issue'] ?? ''), 0, 100),
-                    'work_type' => mb_substr(trim($t['work_type'] ?? 'Coding'), 0, 100),
+                    'issue' => preg_match('/^#([A-Za-z0-9_-]+)(?:\s|$)/u', $content, $issueMatch) ? $issueMatch[1] : '',
+                    'work_type' => in_array($t['work_type'] ?? '', ['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion'], true) ? $t['work_type'] : 'Coding',
                     'progress' => $progress,
                     'estimate' => $estimate
                 ];
@@ -108,26 +126,26 @@ $tasks_today = parseTasks($_POST['tasks_today'] ?? []);
 $tasks_tomorrow = parseTasks($_POST['tasks_tomorrow'] ?? [], true);
 $quality = intval($_POST['quality'] ?? 3); // default 3
 $spirit = intval($_POST['spirit'] ?? 3);   // default 3
-$reporter = mb_substr(trim($_POST['reporter'] ?? ''), 0, 100);
+$reporter = mb_substr(trim($config['reporter'] ?? ''), 0, 100);
 $dailyResult = mb_substr(trim($_POST['daily_result'] ?? ''), 0, 2000);
-if ($destination === 'slack' && $reporter === '') {
-    echo json_encode(['success' => false, 'message' => 'Vui lòng nhập người báo cáo']);
+if ($sendSlack && $reporter === '') {
+    echo json_encode(['success' => false, 'message' => 'Vui lòng nhập và lưu người báo cáo trong Thiết lập']);
     exit;
 }
 $note = mb_substr(trim($_POST['note'] ?? ''), 0, 2000);
 
-if (count($tasks_today) == 0) {
+if (($sendGoogleChat || $sendSlack) && count($tasks_today) == 0) {
     echo json_encode(['success' => false, 'message' => 'Cần ít nhất 1 task hôm nay']);
     exit;
 }
 
-foreach ($tasks_today as $task) {
+foreach (($sendGoogleChat || $sendSlack) ? $tasks_today : [] as $task) {
     if ($task['progress'] !== '' && $task['progress'] < 100 && $task['estimate'] === '') {
         echo json_encode(['success' => false, 'message' => 'Task hôm nay chưa đạt 100% phải có ngày dự kiến']);
         exit;
     }
-    if ($task['estimate'] !== '' && $task['estimate'] < date('Y-m-d')) {
-        echo json_encode(['success' => false, 'message' => 'Ngày dự kiến hoàn thành không được nhỏ hơn hôm nay']);
+    if ($task['estimate'] !== '' && $task['estimate'] < $reportDate) {
+        echo json_encode(['success' => false, 'message' => 'Ngày dự kiến hoàn thành không được trước ngày báo cáo']);
         exit;
     }
 }
@@ -167,7 +185,8 @@ function formatTasks($tasks, $showType = false)
         }
 
         $content = htmlspecialchars($t['content'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $line = "- {$prefix}{$content}";
+        $workType = htmlspecialchars($t['work_type'] ?? 'Coding', ENT_QUOTES, 'UTF-8');
+        $line = "- {$prefix}" . (!$showType ? "[{$workType}] " : '') . $content;
         if ($t['progress'] !== '') $line .= " (<b style='color:yellow'>{$t['progress']}%</b>)";
         if ($t['estimate']) $line .= " - Dự kiến: {$t['estimate']}";
         $out[] = $line;
@@ -181,7 +200,7 @@ date_default_timezone_set('Asia/Ho_Chi_Minh');
 $todayStr = formatTasks($tasks_today);
 $tomorrowStr = formatTasks($tasks_tomorrow, true);
 // Format date with weekday, day/month/year hour:minute
-$date = date('l, d/m/Y H:i');
+$date = $reportDay->format('l, d/m/Y') . ' ' . date('H:i');
 $avatar = $projectConfig['avatar'] ?: 'https://www.jrr.jp/wp-content/uploads/2026/04/favicon.png';
 
 
@@ -249,50 +268,44 @@ $cardV2["cardsV2"][0]["card"]["sections"] = array_values(array_filter($cardV2["c
 
 // Slack uses mrkdwn rather than Google Chat card HTML.
 $slackText = '';
-if ($destination === 'slack') {
+if ($sendSlack) {
     require_once __DIR__ . '/slack-report.php';
-    $slackText = formatSlackReport($reporter, date('Y/m/d'), $tasks_today, $dailyResult, $quality, $spirit, $note);
+    $slackText = formatSlackReport($reporter, $reportDay->format('Y/m/d'), $tasks_today, $dailyResult, $quality, $spirit, $note);
     if (mb_strlen($slackText) > 39000) {
         echo json_encode(['success' => false, 'message' => 'Báo cáo Slack quá dài. Vui lòng giảm nội dung.']);
         exit;
     }
 }
 
-// Send to the selected webhook using cURL
-writeLog("=== SEND $channelName ===");
-writeLog("Project: $project");
-$payload = json_encode($destination === 'slack' ? ['text' => $slackText, 'unfurl_links' => false, 'unfurl_media' => false] : $cardV2, JSON_UNESCAPED_UNICODE);
-$ch = curl_init($webhook);
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-$resp = curl_exec($ch);
-$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curl_error = curl_error($ch);
-curl_close($ch);
-$chatOk = ($resp !== false && $httpcode >= 200 && $httpcode < 300 && ($destination !== 'slack' || trim($resp) === 'ok'));
-
-writeLog("$channelName HTTP: $httpcode");
-if ($curl_error) writeLog("$channelName cURL Error: $curl_error");
-if ($chatOk) {
-    writeLog("✔ $channelName sent successfully");
-} else {
-    writeLog("❌ $channelName failed - Response: $resp");
+// Send every selected channel and retain each result independently.
+$statuses = ['logtime' => 'skipped', 'google_chat' => 'skipped', 'slack' => 'skipped'];
+foreach ($webhooks as $channel => $webhook) {
+    $payload = json_encode($channel === 'slack' ? ['text' => $slackText, 'unfurl_links' => false, 'unfurl_media' => false] : $cardV2, JSON_UNESCAPED_UNICODE);
+    $ch = curl_init($webhook);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $resp = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $ok = $resp !== false && $httpcode >= 200 && $httpcode < 300 && ($channel !== 'slack' || trim($resp) === 'ok');
+    $statuses[$channel] = $ok ? 'ok' : 'failed';
+    writeLog("$channel HTTP: $httpcode; status: {$statuses[$channel]}");
 }
 
-
 // ===== Send Google Form (conditional) =====
-$submitGoogleForm = !empty($_POST['submit_google_form']) && !empty($googleFormConfig['enabled']);
 $formOk = true; // default to true if skipped
 $formHttpCode = 0;
 
 if ($submitGoogleForm && !empty($googleFormConfig['url'])) {
     writeLog("=== SEND GOOGLE FORM ===");
-    $now = new DateTime();
+    $now = clone $reportDay;
 
     // Build task summary for form fields
     $formTaskToday = $todayStr ?: 'N/A';
@@ -355,6 +368,9 @@ if ($submitGoogleForm && !empty($googleFormConfig['url'])) {
     writeLog("=== SKIP GOOGLE FORM (user opted out) ===");
 }
 
+$statuses['logtime'] = $submitGoogleForm ? ($formOk ? 'ok' : 'failed') : 'skipped';
+$anyOk = in_array('ok', $statuses, true);
+
 // ===== Save history to file =====
 $msg = "[Daily Report] {$project} - {$date} (GMT+7)\n";
 $msg .= "\n*📝 Task hôm nay:*\n$todayStr\n";
@@ -362,7 +378,7 @@ if ($tomorrowStr) $msg .= "\n*📅 Task ngày mai:*\n$tomorrowStr\n";
 $msg .= "\n*Chất lượng:* $qualityText\n*Tinh thần:* $spiritText\n";
 if ($note) $msg .= "\n*🗒️ Note:* $note\n";
 
-if ($destination === 'slack') $msg = "[Daily Report] {$project} - {$date} (GMT+7) [Slack]\n" . $slackText;
+if ($statuses['slack'] === 'ok') $msg = "[Daily Report] {$project} - {$date} (GMT+7) [Slack]\n" . $slackText;
 
 $historyDir = __DIR__ . '/history';
 if (!is_dir($historyDir)) {
@@ -372,29 +388,18 @@ if (!is_dir($historyDir)) {
         exit;
     }
 }
-$historyFile = $historyDir . '/' . date('Y-m-d') . '.log';
-if ($chatOk && @file_put_contents($historyFile, $msg . "\n---\n", FILE_APPEND | LOCK_EX) === false) {
+$historyFile = $historyDir . '/' . $reportDate . '.log';
+if ($anyOk && @file_put_contents($historyFile, $msg . "\n---\n", FILE_APPEND | LOCK_EX) === false) {
     echo json_encode(['success' => false, 'message' => 'Không ghi được file lịch sử. Vui lòng kiểm tra quyền ghi thư mục history!']);
     exit;
 }
 
 // ===== Response =====
 writeLog("=== DONE ===");
-
-if ($chatOk) {
-    echo json_encode([
-        'success' => true,
-        'chat_status' => 'ok',
-        'destination' => $destination,
-        'form_status' => $submitGoogleForm ? ($formOk ? 'ok' : 'failed') : 'skipped',
-    ]);
-} else {
-    echo json_encode([
-        'success' => false,
-        'message' => "Gửi $channelName thất bại",
-        'httpcode' => $httpcode,
-        'curl_error' => $curl_error,
-        'response' => $resp,
-        'form_status' => $submitGoogleForm ? ($formOk ? 'ok' : 'failed') : 'skipped',
-    ]);
-}
+$success = !in_array('failed', $statuses, true);
+echo json_encode([
+    'success' => $success,
+    'partial' => !$success && $anyOk,
+    'statuses' => $statuses,
+    'message' => $success ? 'Đã gửi các mục đã chọn' : 'Có mục gửi thất bại',
+]);

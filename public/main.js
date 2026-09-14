@@ -187,7 +187,7 @@ $(document).ready(function () {
             const date = new Date(gridStart);
             date.setDate(gridStart.getDate() + index);
             const value = dateToValue(date);
-            const isPast = disallowPast && value < todayValue;
+            const isPast = disallowPast && value < ($('#reportDate').val() || todayValue);
             $('<button type="button" class="dr-calendar-day"></button>')
                 .text(date.getDate())
                 .attr('data-date', value)
@@ -303,7 +303,7 @@ $(document).ready(function () {
                 <input name="projects[webhook][]" class="project-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://chat.googleapis.com/..." value="${escapeHtml(webhook)}">
             </label>
             <label class="mb-1 block">
-                <span class="mb-1 block text-[11px] font-medium text-zinc-600">Incoming Webhook Slack</span>
+                <span class="mb-1 block text-[11px] font-medium text-zinc-600">Webhook Slack</span>
                 <input name="projects[slack_webhook][]" class="project-slack-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs" placeholder="https://hooks.slack.com/services/...">
             </label>
             <label class="block">
@@ -414,17 +414,12 @@ $(document).ready(function () {
         }
 
         return `<div class="task-today-item task-sortable animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
-            <div class="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <label class="text-xs text-zinc-600">Issue
-                    <input name="tasks_today[${idx}][issue]" maxlength="100" class="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm" placeholder="999">
-                </label>
-                <label class="text-xs text-zinc-600">Loại công việc
-                    <input name="tasks_today[${idx}][work_type]" maxlength="100" class="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm" value="Coding" placeholder="Coding, Testing, Review...">
-                </label>
-            </div>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button type="button" class="task-drag-handle hidden h-9 w-7 flex-shrink-0 items-center justify-center text-zinc-400 hover:text-zinc-700 sm:flex" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
-                <input type="text" name="tasks_today[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="Nội dung task..." required/>
+                <input type="text" name="tasks_today[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" aria-label="Nội dung công việc" placeholder="#999 Sửa lỗi thêm sản phẩm..." required/>
+                <select name="tasks_today[${idx}][work_type]" aria-label="Loại công việc" class="h-9 w-full sm:w-32 rounded-md border border-zinc-200 bg-white px-2 text-sm">
+                    ${['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion'].map(type => `<option value="${type}">${type}</option>`).join('')}
+                </select>
                 <div class="flex w-full gap-2 sm:w-auto">
                     <select name="tasks_today[${idx}][progress]" class="h-9 w-24 flex-shrink-0 cursor-pointer rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" required>
                         <option value="">--%</option>${options}
@@ -438,7 +433,14 @@ $(document).ready(function () {
         </div>`;
     }
 
+    function syncSubmitRequirements() {
+        const needsTasks = $('#submitGoogleChat, #submitSlack').is(':checked');
+        $('#tasks-today-list input[name*="[content]"], #tasks-today-list select[name*="[progress]"]').prop('required', needsTasks);
+    }
+    $('#submitGoogleChat, #submitSlack').on('change', syncSubmitRequirements);
+
     function updateTodayEstimateState($item) {
+        syncSubmitRequirements();
         const progress = $item.find('select[name*="[progress]"]').val();
         const $estimate = $item.find('input[name*="[estimate]"]');
 
@@ -458,7 +460,7 @@ $(document).ready(function () {
         let isValid = true;
         let firstInvalid = null;
         let invalidReason = 'missing';
-        const todayValue = dateToValue(new Date());
+        const todayValue = $('#reportDate').val();
 
         $('#tasks-today-list .task-today-item').each(function () {
             const $item = $(this);
@@ -486,7 +488,7 @@ $(document).ready(function () {
             Swal.fire({
                 icon: 'warning',
                 title: invalidReason === 'past' ? 'Ngày dự kiến không hợp lệ' : 'Cần ngày dự kiến',
-                text: invalidReason === 'past' ? 'Ngày dự kiến hoàn thành không được nhỏ hơn hôm nay.' : 'Task hôm nay chưa đạt 100% phải có ngày dự kiến.',
+                text: invalidReason === 'past' ? 'Ngày dự kiến hoàn thành không được trước ngày báo cáo.' : 'Task hôm nay chưa đạt 100% phải có ngày dự kiến.',
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
@@ -552,7 +554,7 @@ $(document).ready(function () {
     }
 
     function getTomorrowDate() {
-        const date = new Date();
+        const date = new Date(($('#reportDate').val() || dateToValue(new Date())) + 'T00:00:00');
         date.setDate(date.getDate() + 1);
         return [
             date.getFullYear(),
@@ -571,7 +573,7 @@ Nội dung task | tiến độ% | ngày dự kiến
 - Mô tả đúng việc thực tế: chỉ trao đổi/phân tích thì ghi rõ, không viết thành đã code, sửa xong hay triển khai.
 - Tiến độ từ 0–100%, theo bước 10%; dựa trên kết quả trao đổi, ước lượng thận trọng nếu chưa có số cụ thể. Không dùng việc có/chưa có commit để kết luận hoàn thành.
 - Task đã hoàn thành: Nội dung task | 100% (bỏ ngày dự kiến). Một task phân tích/trao đổi có thể hoàn thành nếu đã đạt mục tiêu của chính task đó.
-- Task chưa xong: tiến độ dưới 100% và có ngày dự kiến YYYY-MM-DD từ hôm nay trở đi; nếu chưa có ngày thì dùng ${getTomorrowDate()}.
+- Task chưa xong: tiến độ dưới 100% và có ngày dự kiến YYYY-MM-DD từ ngày báo cáo ${$('#reportDate').val()} trở đi; nếu chưa có ngày thì dùng ${getTomorrowDate()}.
 - Không thêm tiêu đề, bullet, bảng, code block hoặc giải thích; không dùng dấu | bên trong nội dung task. Nếu không có thông tin công việc thì không tạo task.
 
 Ghi chú bổ sung (nếu có):
@@ -585,9 +587,9 @@ Ghi chú bổ sung (nếu có):
             $item = $('#tasks-today-list .task-today-item').last();
         }
 
-        $item.find('input[name*="[issue]"]').val(task.issue || '');
-        $item.find('input[name*="[work_type]"]').val(task.work_type || 'Coding');
-        $item.find('input[name*="[content]"]').val(task.content);
+        const types = ['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion'];
+        $item.find('select[name*="[work_type]"]').val(types.includes(task.work_type) ? task.work_type : 'Coding').trigger('change');
+        $item.find('input[name*="[content]"]').val(task.issue && !String(task.content).startsWith('#' + task.issue) ? '#' + task.issue + ' ' + task.content : task.content);
         $item.find('select[name*="[progress]"]').val(task.progress);
         $item.find('input[name*="[estimate]"]').val(task.estimate);
         updateTodayEstimateState($item);
@@ -849,8 +851,7 @@ Task C"></textarea>`,
         const tomorrowTasks = [];
         $('#tasks-today-list .task-today-item').each(function () {
             todayTasks.push({
-                issue: $(this).find('input[name*="[issue]"]').val(),
-                work_type: $(this).find('input[name*="[work_type]"]').val(),
+                work_type: $(this).find('select[name*="[work_type]"]').val(),
                 content: $(this).find('input[name*="[content]"]').val(),
                 progress: $(this).find('select[name*="[progress]"]').val(),
                 estimate: $(this).find('input[name*="[estimate]"]').val()
@@ -864,9 +865,10 @@ Task C"></textarea>`,
         });
         return {
             savedAt: new Date().toISOString(),
-            destination: $('#destination').val(),
+            submitGoogleChat: $('#submitGoogleChat').prop('checked'),
+            submitSlack: $('#submitSlack').prop('checked'),
             submitGoogleForm: $('#submitGoogleForm').prop('checked'),
-            reporter: $('#reporter').val(),
+            reportDate: $('#reportDate').val(),
             dailyResult: $('#dailyResult').val(),
             project: $('#project').val(),
             todayTasks,
@@ -880,7 +882,7 @@ Task C"></textarea>`,
     function hasDraftContent(draft) {
         return draft.todayTasks.some(task => String(task.content || '').trim()) ||
             draft.tomorrowTasks.some(task => String(task.content || '').trim()) ||
-            String(draft.note || draft.reporter || draft.dailyResult || '').trim();
+            String(draft.note || draft.dailyResult || '').trim();
     }
 
     function updateDraftStatus(savedAt) {
@@ -903,9 +905,11 @@ Task C"></textarea>`,
 
     function restoreDraft(draft) {
         if (!draft || !Array.isArray(draft.todayTasks)) return;
-        $('#destination').val(draft.destination || 'slack');
-        $('#submitGoogleForm').prop('checked', Boolean(draft.submitGoogleForm));
-        $('#reporter').val(draft.reporter || '');
+        $('#submitGoogleChat').prop('checked', draft.submitGoogleChat ?? (draft.destination ? draft.destination === 'google_chat' : true));
+        $('#submitSlack').prop('checked', draft.submitSlack ?? (draft.destination === 'slack'));
+        $('#submitGoogleForm').prop('checked', draft.submitGoogleForm ?? true);
+        $('#reportDate').val(draft.reportDate || $('#reportDate')[0].defaultValue).trigger('change');
+        syncDateControl($('#reportDate')[0]);
         $('#dailyResult').val(draft.dailyResult || '');
         $('#tasks-today-list, #tasks-tomorrow-list').empty();
         draft.todayTasks.forEach(function (task) { addTodayTask(task); });
@@ -936,6 +940,8 @@ Task C"></textarea>`,
         localStorage.removeItem(draftKey);
     }
 
+    syncSubmitRequirements();
+
     $('#dailyReportForm').on('input change', 'input, select, textarea', scheduleDraftSave);
     $('#quality-list, #spirit-list').on('click', 'button', scheduleDraftSave);
 
@@ -949,17 +955,17 @@ Task C"></textarea>`,
 
     function previewHtml() {
         const draft = collectDraft();
-        const formPreview = `<p class="mt-3 text-xs text-zinc-500">Google Form: ${draft.submitGoogleForm ? 'Có gửi kèm' : 'Không gửi'}</p>`;
-        if (draft.destination === 'slack') {
+        const formPreview = `<p class="mt-3 text-xs text-zinc-500">Submit kèm: ${[draft.submitGoogleForm && 'RCNV logtime', draft.submitGoogleChat && 'Google Chat', draft.submitSlack && 'Slack'].filter(Boolean).join(', ') || 'Chưa chọn'}</p>`;
+        if (draft.submitSlack) {
             const quality = {1: 'Kém', 2: 'Trung bình', 3: 'Khá', 4: 'Tốt', 5: 'Xuất sắc'};
             const spirit = {1: 'Cạn pin', 2: 'Cần cà phê', 3: 'Ổn định', 4: 'Tốt', 5: 'Bứt phá'};
             const tasks = draft.todayTasks.filter(task => String(task.content || '').trim()).map(task => {
                 const status = task.progress === '' ? 'Chưa cập nhật' : Number(task.progress) === 100 ? 'Hoàn thành' : Number(task.progress) === 0 ? 'Chưa bắt đầu' : 'Đang thực hiện';
-                return `<li class="mb-3"><strong>Issue:</strong> <code>${escapeHtml(task.issue || 'Không có')}</code><br>• <strong>Công việc:</strong> ${escapeHtml(task.content)}<br>• <strong>Loại:</strong> ${escapeHtml(task.work_type || 'Coding')}<br>• <strong>Trạng thái:</strong> ${status}<br>• <strong>Tiến độ:</strong> ${task.progress === '' ? 'Chưa cập nhật' : escapeHtml(task.progress) + '%'}</li>`;
+                return `<li class="mb-3"><strong>Issue:</strong> <code>${escapeHtml((String(task.content).match(/^#([A-Za-z0-9_-]+)(?:\s|$)/) || [])[1] || 'Không có')}</code><br>• <strong>Công việc:</strong> ${escapeHtml(task.content)}<br>• <strong>Loại:</strong> ${escapeHtml(task.work_type || 'Coding')}<br>• <strong>Trạng thái:</strong> ${status}<br>• <strong>Tiến độ:</strong> ${task.progress === '' ? 'Chưa cập nhật' : escapeHtml(task.progress) + '%'}</li>`;
             }).join('');
             return `<div class="text-left text-sm space-y-3">
                 <h2 class="font-bold">BÁO CÁO CÔNG VIỆC HẰNG NGÀY</h2>
-                <p><strong>Người báo cáo:</strong> <code>${escapeHtml(draft.reporter)}</code><br><strong>Ngày:</strong> <code>${new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date()).replaceAll('-', '/')}</code></p>
+                <p><strong>Người báo cáo:</strong> <code>${escapeHtml($('#dailyReportForm').attr('data-reporter'))}</code><br><strong>Ngày:</strong> <code>${escapeHtml((draft.reportDate || '').replaceAll('-', '/'))}</code></p>
                 <h3 class="font-bold">1. CÔNG VIỆC TRONG NGÀY</h3><ul>${tasks}</ul>
                 <h3 class="font-bold">2. TỰ ĐÁNH GIÁ KẾT QUẢ & CHẤT LƯỢNG</h3>
                 <p class="whitespace-pre-wrap"><strong>Kết quả hôm nay:</strong> ${escapeHtml(draft.dailyResult || 'Không có.')}</p><p><strong>Đánh giá:</strong> ${quality[draft.quality] || 'Khá'}</p>
@@ -976,7 +982,7 @@ Task C"></textarea>`,
             return `<li class="rounded-md bg-zinc-50 px-3 py-2"><span class="text-zinc-500">[${task.type === 'continue' ? 'Continue' : 'New'}]</span> ${escapeHtml(task.content)}</li>`;
         }).join('');
         return `<div class="text-left text-sm text-zinc-700">
-            <div class="mb-4 rounded-lg border border-zinc-200 p-3"><div class="font-semibold text-zinc-950">📋 Daily Report · ${escapeHtml(draft.project)}</div><div class="mt-1 text-xs text-zinc-500">${escapeHtml(new Date().toLocaleString('vi-VN'))}</div></div>
+            <div class="mb-4 rounded-lg border border-zinc-200 p-3"><div class="font-semibold text-zinc-950">📋 Daily Report · ${escapeHtml(draft.project)}</div><div class="mt-1 text-xs text-zinc-500">${escapeHtml(formatDisplayDate(draft.reportDate))}</div></div>
             <h3 class="mb-2 font-semibold text-zinc-900">📝 Task hôm nay</h3><ul class="mb-4 space-y-2">${today || '<li class="text-zinc-400">Chưa có task</li>'}</ul>
             <h3 class="mb-2 font-semibold text-zinc-900">📅 Task ngày mai</h3><ul class="mb-4 space-y-2">${tomorrow || '<li class="text-zinc-400">Chưa có kế hoạch</li>'}</ul>
             <div class="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 p-3"><span>Chất lượng: <strong>${escapeHtml(draft.quality)}/5</strong></span><span>Tinh thần: <strong>${escapeHtml(draft.spirit)}/5</strong></span></div>
@@ -1000,11 +1006,20 @@ Task C"></textarea>`,
     $('#dailyReportForm').submit(function (e) {
         e.preventDefault();
 
-        if ($('#tasks-today-list .task-today-item').length === 0) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test($('#reportDate').val() || '')) {
+            Swal.fire({ icon: 'warning', text: 'Vui lòng chọn ngày báo cáo.' });
+            return;
+        }
+        const needsTasks = $('#submitGoogleChat, #submitSlack').is(':checked');
+        if (needsTasks && !collectDraft().todayTasks.some(task => String(task.content || '').trim())) {
             Swal.fire({ icon: 'warning', title: 'Cảnh báo', text: 'Cần ít nhất 1 task hôm nay!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
             return;
         }
 
+        if (!$('#submitGoogleForm, #submitGoogleChat, #submitSlack').is(':checked')) {
+            Swal.fire({ icon: 'warning', text: 'Chọn ít nhất một mục trong Submit kèm.' });
+            return;
+        }
         if (!$('#spirit').val()) {
             Swal.fire({ icon: 'warning', title: 'Vui lòng chọn mức tinh thần!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
             return;
@@ -1013,12 +1028,13 @@ Task C"></textarea>`,
             Swal.fire({ icon: 'warning', title: 'Vui lòng chọn chất lượng!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
             return;
         }
-        if ($('#destination').val() === 'slack' && !$('#reporter').val().trim()) {
-            Swal.fire({ icon: 'warning', text: 'Vui lòng nhập người báo cáo.' });
-            $('#reporter').trigger('focus');
+        if ($('#submitSlack').prop('checked') && !($('#dailyReportForm').attr('data-reporter') || '').trim()) {
+            Swal.fire({ icon: 'warning', text: 'Vui lòng nhập và lưu người báo cáo trong Thiết lập.' });
+            setSettingsOpen(true);
+            $('#reporterSetting').trigger('focus');
             return;
         }
-        if (!validateTodayTasks()) {
+        if (needsTasks && !validateTodayTasks()) {
             return;
         }
 
@@ -1035,6 +1051,18 @@ Task C"></textarea>`,
                 $('#submitBtn').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed');
                 $('#loadingIcon').addClass('hidden');
                 $('#submitText').text('Gửi báo cáo');
+                const labels = {logtime: 'RCNV logtime', google_chat: 'Google Chat', slack: 'Slack'};
+                const resultText = res.statuses ? Object.entries(res.statuses).filter(([, status]) => status !== 'skipped').map(([channel, status]) => `${labels[channel]}: ${status === 'ok' ? 'Thành công' : 'Thất bại'}`).join(' · ') : res.message;
+                if (res.partial) {
+                    // Retry only failed channels to avoid duplicate reports or logtime.
+                    for (const [channel, id] of Object.entries({logtime: 'submitGoogleForm', google_chat: 'submitGoogleChat', slack: 'submitSlack'})) {
+                        if (res.statuses[channel] === 'ok') $('#' + id).prop('checked', false);
+                    }
+                    syncSubmitRequirements();
+                    saveDraft();
+                    Swal.fire({ icon: 'warning', title: 'Đã gửi một phần', text: resultText + '. Đã bỏ chọn mục thành công; bạn có thể gửi lại mục lỗi.' });
+                    return;
+                }
                 if (res.success) {
                     localStorage.removeItem(draftKey);
                     $('#draftStatus').text('Đã gửi · bản nháp đã được xóa');
@@ -1042,7 +1070,7 @@ Task C"></textarea>`,
                     Swal.fire({
                         icon: 'success',
                         title: 'Đã gửi báo cáo',
-                        text: res.form_status === 'failed' ? `${res.destination === 'slack' ? 'Slack' : 'Google Chat'} thành công, Google Form thất bại.` : `${res.destination === 'slack' ? 'Slack' : 'Google Chat'} đã gửi báo cáo thành công.`,
+                        text: resultText,
                         toast: true,
                         position: 'top-end',
                         showConfirmButton: false,
@@ -1053,7 +1081,7 @@ Task C"></textarea>`,
                     Swal.fire({
                         icon: 'error',
                         title: 'Lỗi!',
-                        text: res.message || 'Có lỗi xảy ra!',
+                        text: resultText || 'Có lỗi xảy ra!',
                         toast: true,
                         position: 'top-end',
                         showConfirmButton: false,
@@ -1185,6 +1213,7 @@ Task C"></textarea>`,
                 $('#saveSettingsBtn').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed').text('Lưu thiết lập');
                 if (res.success) {
                     syncProjectSelects();
+                    $('#dailyReportForm').attr('data-reporter', $('#reporterSetting').val().trim());
                     setSettingsOpen(false);
                     Swal.fire({ icon: 'success', title: 'Đã lưu thiết lập', toast: true, position: 'top-end', showConfirmButton: false, timer: 1800 });
                 } else {

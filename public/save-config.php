@@ -48,6 +48,7 @@ if (!isset($projects[$defaultProject])) {
 }
 
 $config = [
+    'reporter' => mb_substr(clean($_POST['reporter'] ?? ''), 0, 100),
     'default_project' => $defaultProject,
     'projects' => $projects,
     'google_form' => [

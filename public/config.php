@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'reporter' => '',
     'default_project' => 'JRR',
     'projects' => [
         'JRR' => [
