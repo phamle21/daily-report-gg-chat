@@ -463,7 +463,7 @@ function e($value)
             </form>
         </aside>
 
-        <form data-reporter="<?= e($config['reporter'] ?? '') ?>" id="dailyReportForm" class="mx-auto max-w-4xl space-y-3 animate-slide-up">
+        <form data-reporter="<?= e($config['reporter'] ?? '') ?>" id="dailyReportForm" class="mx-auto max-w-5xl space-y-3 animate-slide-up">
             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
 
             <!-- Project -->
@@ -496,7 +496,18 @@ function e($value)
                         <span class="text-xs font-normal text-zinc-500">(cần hoàn thành)</span>
                     </span>
                 </label>
+                <p class="mb-2 text-xs text-zinc-500">Nhập issue/feature, chọn loại việc, mô tả và % hoàn thành.</p>
+                <div class="mb-1 hidden gap-2 px-1 sm:flex">
+                    <span class="w-7 flex-shrink-0"></span>
+                    <span class="w-28 flex-shrink-0 text-[11px] font-medium text-zinc-500">Issue/Task no</span>
+                    <span class="w-32 flex-shrink-0 text-[11px] font-medium text-zinc-500">Loại</span>
+                </div>
                 <div id="tasks-today-list" class="space-y-2"></div>
+                <datalist id="workTypeList">
+                    <?php foreach (['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion', 'Design', 'Detail Design', 'Meeting', 'Deploy'] as $type): ?>
+                        <option value="<?= e($type) ?>">
+                    <?php endforeach; ?>
+                </datalist>
                 <div class="mt-2 flex flex-wrap gap-2">
                     <button type="button" id="add-task-today" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
@@ -541,7 +552,7 @@ function e($value)
                 <div class="space-y-3">
                     <!-- Quality -->
                     <div>
-                        <label class="mb-2 block text-sm font-medium text-zinc-700">Chất lượng công việc</label>
+                        <label class="mb-2 block text-sm font-medium text-zinc-700">Kết quả & chất lượng công việc hôm nay</label>
                         <div id="quality-list" class="grid grid-cols-1 gap-2 sm:grid-cols-5">
                             <button type="button" class="quality-btn min-h-20 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm text-zinc-600 transition-all hover:border-zinc-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" data-value="1">
                                 <span class="mb-1 block text-xs text-zinc-400">1</span>
@@ -570,6 +581,8 @@ function e($value)
                             </button>
                         </div>
                         <input type="hidden" name="quality" id="quality" required>
+                        <label for="dailyResult" class="mb-1 mt-2 block text-xs font-medium text-zinc-500">Tự đánh giá ngắn gọn <span class="font-normal">(tùy chọn)</span></label>
+                        <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" placeholder="Kết quả và chất lượng công việc trong ngày báo cáo..."></textarea>
                     </div>
 
                     <!-- Spirit -->
@@ -587,20 +600,15 @@ function e($value)
                 </div>
             </div>
 
-            <!-- Note -->
-            <div class="rounded-xl border border-zinc-200 bg-white p-3">
-                <label for="dailyResult" class="mb-2 block text-sm font-medium text-zinc-900">Kết quả hôm nay</label>
-                <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" placeholder="Kết quả và chất lượng công việc trong ngày báo cáo..."></textarea>
-            </div>
-
             <div class="rounded-xl border border-rose-200 bg-rose-50/50 p-3 shadow-sm">
                 <label class="mb-2 block text-sm font-medium text-zinc-900">
                     <span class="flex items-center gap-2">
                         <span class="flex h-6 w-6 items-center justify-center rounded-md bg-rose-500 text-xs font-semibold text-white">✎</span>
-                        Ghi chú
+                        Chia sẻ thêm nếu có
                         <span class="text-xs font-normal text-zinc-500">(tùy chọn)</span>
                     </span>
                 </label>
+                <p class="mb-2 text-xs text-zinc-500">Hãy chia sẻ ngắn gọn điều ảnh hưởng đến cảm xúc hoặc tinh thần và chất lượng công việc của bạn hôm nay.</p>
                 <textarea name="note" class="min-h-20 w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" rows="2" placeholder="Ghi chú thêm..."></textarea>
             </div>
 

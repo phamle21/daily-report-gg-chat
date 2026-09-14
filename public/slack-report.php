@@ -12,7 +12,7 @@ function formatSlackReport($reporter, $date, $tasks, $result, $quality, $spirit,
     foreach ($tasks as $task) {
         $progress = $task['progress'];
         $status = $progress === '' ? 'Chưa cập nhật' : ($progress === 100 ? 'Hoàn thành' : ($progress === 0 ? 'Chưa bắt đầu' : 'Đang thực hiện'));
-        $text .= "\n• *Issue:* " . $code($task['issue'] ?: 'Không có');
+        $text .= "\n• *Issue:* " . $code($task['issue_no'] ?: 'Không có');
         $text .= "\n    • *Công việc:* " . $escape($task['content']);
         $text .= "\n    • *Loại:* " . $escape($task['work_type'] ?: 'Coding');
         $text .= "\n    • *Trạng thái:* " . $status;

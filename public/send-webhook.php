@@ -103,10 +103,13 @@ function parseTasks($arr, $withType = false)
                     $estimate = '';
                 }
 
+                $issueNo = mb_substr(trim((string)($t['issue_no'] ?? '')), 0, 50);
+                $workType = mb_substr(trim((string)($t['work_type'] ?? '')), 0, 50);
+
                 $task = [
                     'content' => $content,
-                    'issue' => preg_match('/^#([A-Za-z0-9_-]+)(?:\s|$)/u', $content, $issueMatch) ? $issueMatch[1] : '',
-                    'work_type' => in_array($t['work_type'] ?? '', ['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion'], true) ? $t['work_type'] : 'Coding',
+                    'issue_no' => $issueNo,
+                    'work_type' => $workType !== '' ? $workType : 'Coding',
                     'progress' => $progress,
                     'estimate' => $estimate
                 ];
@@ -186,8 +189,13 @@ function formatTasks($tasks, $showType = false)
 
         $content = htmlspecialchars($t['content'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $workType = htmlspecialchars($t['work_type'] ?? 'Coding', ENT_QUOTES, 'UTF-8');
-        $line = "- {$prefix}" . (!$showType ? "[{$workType}] " : '') . $content;
-        if ($t['progress'] !== '') $line .= " (<b style='color:yellow'>{$t['progress']}%</b>)";
+        $issueNo = htmlspecialchars($t['issue_no'] ?? '', ENT_QUOTES, 'UTF-8');
+        $issuePrefix = $issueNo !== '' ? "[{$issueNo}] " : '';
+        $line = "- {$prefix}{$issuePrefix}{$content}";
+        if (!$showType) {
+            $line .= " - {$workType}";
+            if ($t['progress'] !== '') $line .= " <b style='color:yellow'>{$t['progress']}%</b>";
+        }
         if ($t['estimate']) $line .= " - Dự kiến: {$t['estimate']}";
         $out[] = $line;
     }

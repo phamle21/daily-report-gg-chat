@@ -416,10 +416,9 @@ $(document).ready(function () {
         return `<div class="task-today-item task-sortable animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button type="button" class="task-drag-handle hidden h-9 w-7 flex-shrink-0 items-center justify-center text-zinc-400 hover:text-zinc-700 sm:flex" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
-                <input type="text" name="tasks_today[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" aria-label="Nội dung công việc" placeholder="#999 Sửa lỗi thêm sản phẩm..." required/>
-                <select name="tasks_today[${idx}][work_type]" aria-label="Loại công việc" class="h-9 w-full sm:w-32 rounded-md border border-zinc-200 bg-white px-2 text-sm">
-                    ${['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion'].map(type => `<option value="${type}">${type}</option>`).join('')}
-                </select>
+                <input type="text" name="tasks_today[${idx}][issue_no]" class="h-9 w-full flex-shrink-0 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 sm:w-28" aria-label="Issue/Task no" placeholder="#999 / Feature" />
+                <input type="text" name="tasks_today[${idx}][work_type]" list="workTypeList" class="h-9 w-full flex-shrink-0 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 sm:w-32" aria-label="Loại công việc" placeholder="Coding" />
+                <input type="text" name="tasks_today[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" aria-label="Nội dung công việc" placeholder="Bug khi thêm mới sản phẩm (Môi trường Prod)..." required/>
                 <div class="flex w-full gap-2 sm:w-auto">
                     <select name="tasks_today[${idx}][progress]" class="h-9 w-24 flex-shrink-0 cursor-pointer rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" required>
                         <option value="">--%</option>${options}
@@ -528,12 +527,35 @@ $(document).ready(function () {
 
     function parseBulkTodayTasks(text) {
         return String(text || '').split(/\r?\n/).map(function (line) {
-            const parts = line.split('|').map(part => part.trim());
-            const content = parts.shift() || '';
-            const progress = normalizeProgress(parts[0] || '');
-            const estimate = progress === '100' ? '' : normalizeDate(parts[1] || '');
+            let rest = line.trim();
+            let issue_no = '';
+            const issueMatch = rest.match(/^\[([^\]]+)\]\s*/);
+            if (issueMatch) {
+                issue_no = issueMatch[1].trim();
+                rest = rest.slice(issueMatch[0].length);
+            }
 
-            return { content, progress, estimate };
+            const parts = rest.split('|').map(part => part.trim());
+            const content = parts.shift() || '';
+            let work_type = '';
+            let progress = '';
+            let estimate = '';
+            parts.forEach(function (part) {
+                if (!part) return;
+                const asDate = normalizeDate(part);
+                if (asDate) {
+                    estimate = asDate;
+                    return;
+                }
+                if (/^\d{1,3}%?$/.test(part)) {
+                    progress = normalizeProgress(part);
+                    return;
+                }
+                work_type = part;
+            });
+            if (progress === '100') estimate = '';
+
+            return { issue_no, work_type, content, progress, estimate };
         }).filter(task => task.content);
     }
 
@@ -567,12 +589,14 @@ $(document).ready(function () {
         return `Tổng hợp các thông tin đã trao đổi trong ngày trong cuộc trò chuyện này thành task để tôi copy vào form multi tasks. Bao gồm trao đổi với agent, phân tích, nghiên cứu, thống nhất phương án và việc đã thực hiện, kể cả chưa có commit. Dùng thêm ghi chú bên dưới nếu có.
 
 Chỉ trả plain text, mỗi task một dòng theo cấu trúc:
-Nội dung task | tiến độ% | ngày dự kiến
+[Issue/Feature] Nội dung task | Loại | tiến độ% | ngày dự kiến
 
-- Viết ngắn, gộp ý trùng; thêm issue/ticket đầu nội dung nếu có, không tự bịa.
+- [Issue/Feature] là issue/ticket hoặc tên feature nếu có, ví dụ [Issue 999] hoặc [Feature]; bỏ hẳn cặp ngoặc nếu không có, không tự bịa.
+- Loại chọn phù hợp nhất (Coding, Fix bug, Feature, Testing, Review, Research, Discussion, Design, Detail Design, Meeting, Deploy...); nếu không chắc thì dùng Coding.
+- Viết ngắn, gộp ý trùng.
 - Mô tả đúng việc thực tế: chỉ trao đổi/phân tích thì ghi rõ, không viết thành đã code, sửa xong hay triển khai.
 - Tiến độ từ 0–100%, theo bước 10%; dựa trên kết quả trao đổi, ước lượng thận trọng nếu chưa có số cụ thể. Không dùng việc có/chưa có commit để kết luận hoàn thành.
-- Task đã hoàn thành: Nội dung task | 100% (bỏ ngày dự kiến). Một task phân tích/trao đổi có thể hoàn thành nếu đã đạt mục tiêu của chính task đó.
+- Task đã hoàn thành: ... | 100% (bỏ ngày dự kiến). Một task phân tích/trao đổi có thể hoàn thành nếu đã đạt mục tiêu của chính task đó.
 - Task chưa xong: tiến độ dưới 100% và có ngày dự kiến YYYY-MM-DD từ ngày báo cáo ${$('#reportDate').val()} trở đi; nếu chưa có ngày thì dùng ${getTomorrowDate()}.
 - Không thêm tiêu đề, bullet, bảng, code block hoặc giải thích; không dùng dấu | bên trong nội dung task. Nếu không có thông tin công việc thì không tạo task.
 
@@ -587,9 +611,9 @@ Ghi chú bổ sung (nếu có):
             $item = $('#tasks-today-list .task-today-item').last();
         }
 
-        const types = ['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion'];
-        $item.find('select[name*="[work_type]"]').val(types.includes(task.work_type) ? task.work_type : 'Coding').trigger('change');
-        $item.find('input[name*="[content]"]').val(task.issue && !String(task.content).startsWith('#' + task.issue) ? '#' + task.issue + ' ' + task.content : task.content);
+        $item.find('input[name*="[issue_no]"]').val(task.issue_no || task.issue || '');
+        $item.find('input[name*="[work_type]"]').val(task.work_type || 'Coding');
+        $item.find('input[name*="[content]"]').val(task.content);
         $item.find('select[name*="[progress]"]').val(task.progress);
         $item.find('input[name*="[estimate]"]').val(task.estimate);
         updateTodayEstimateState($item);
@@ -631,9 +655,9 @@ Ghi chú bổ sung (nếu có):
     $('#bulk-task-today').click(function () {
         Swal.fire({
             title: 'Nhập nhiều task',
-            html: `<textarea id="bulkTaskTodayText" class="dr-modal-field" spellcheck="false" placeholder="Task A | 100%
-Task B | 70% | 2026-06-03
-Task C"></textarea>`,
+            html: `<textarea id="bulkTaskTodayText" class="dr-modal-field" spellcheck="false" placeholder="[Issue 999] Bug khi thêm mới sản phẩm | Coding | 50%
+[Feature] Quản lý sản phẩm | Detail Design | 60% | 2026-09-20
+Task C | 100%"></textarea>`,
             buttonsStyling: false,
             customClass: {
                 popup: 'dr-swal',
@@ -851,7 +875,8 @@ Task C"></textarea>`,
         const tomorrowTasks = [];
         $('#tasks-today-list .task-today-item').each(function () {
             todayTasks.push({
-                work_type: $(this).find('select[name*="[work_type]"]').val(),
+                issue_no: $(this).find('input[name*="[issue_no]"]').val(),
+                work_type: $(this).find('input[name*="[work_type]"]').val(),
                 content: $(this).find('input[name*="[content]"]').val(),
                 progress: $(this).find('select[name*="[progress]"]').val(),
                 estimate: $(this).find('input[name*="[estimate]"]').val()
@@ -961,7 +986,7 @@ Task C"></textarea>`,
             const spirit = {1: 'Cạn pin', 2: 'Cần cà phê', 3: 'Ổn định', 4: 'Tốt', 5: 'Bứt phá'};
             const tasks = draft.todayTasks.filter(task => String(task.content || '').trim()).map(task => {
                 const status = task.progress === '' ? 'Chưa cập nhật' : Number(task.progress) === 100 ? 'Hoàn thành' : Number(task.progress) === 0 ? 'Chưa bắt đầu' : 'Đang thực hiện';
-                return `<li class="mb-3"><strong>Issue:</strong> <code>${escapeHtml((String(task.content).match(/^#([A-Za-z0-9_-]+)(?:\s|$)/) || [])[1] || 'Không có')}</code><br>• <strong>Công việc:</strong> ${escapeHtml(task.content)}<br>• <strong>Loại:</strong> ${escapeHtml(task.work_type || 'Coding')}<br>• <strong>Trạng thái:</strong> ${status}<br>• <strong>Tiến độ:</strong> ${task.progress === '' ? 'Chưa cập nhật' : escapeHtml(task.progress) + '%'}</li>`;
+                return `<li class="mb-3"><strong>Issue:</strong> <code>${escapeHtml(task.issue_no || 'Không có')}</code><br>• <strong>Công việc:</strong> ${escapeHtml(task.content)}<br>• <strong>Loại:</strong> ${escapeHtml(task.work_type || 'Coding')}<br>• <strong>Trạng thái:</strong> ${status}<br>• <strong>Tiến độ:</strong> ${task.progress === '' ? 'Chưa cập nhật' : escapeHtml(task.progress) + '%'}</li>`;
             }).join('');
             return `<div class="text-left text-sm space-y-3">
                 <h2 class="font-bold">BÁO CÁO CÔNG VIỆC HẰNG NGÀY</h2>
@@ -975,8 +1000,10 @@ Task C"></textarea>`,
             </div>`;
         }
         const today = draft.todayTasks.filter(task => String(task.content || '').trim()).map(function (task) {
-            const extra = task.progress ? ` <strong>${escapeHtml(task.progress)}%</strong>${task.estimate ? ` · ${escapeHtml(task.estimate)}` : ''}` : '';
-            return `<li class="rounded-md bg-zinc-50 px-3 py-2">${escapeHtml(task.content)}${extra}</li>`;
+            const prefix = task.issue_no ? `[${escapeHtml(task.issue_no)}] ` : '';
+            const suffix = ` - ${escapeHtml(task.work_type || 'Coding')}${task.progress ? ` ${escapeHtml(task.progress)}%` : ''}`;
+            const extra = task.estimate ? ` · ${escapeHtml(task.estimate)}` : '';
+            return `<li class="rounded-md bg-zinc-50 px-3 py-2">${prefix}${escapeHtml(task.content)}${suffix}${extra}</li>`;
         }).join('');
         const tomorrow = draft.tomorrowTasks.filter(task => String(task.content || '').trim()).map(function (task) {
             return `<li class="rounded-md bg-zinc-50 px-3 py-2"><span class="text-zinc-500">[${task.type === 'continue' ? 'Continue' : 'New'}]</span> ${escapeHtml(task.content)}</li>`;
