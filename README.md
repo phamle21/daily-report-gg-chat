@@ -1,6 +1,6 @@
 # Daily Report Google Chat
 
-Ứng dụng web PHP để tạo daily report, gửi lên Google Chat, lưu lịch sử và tùy chọn submit Google Form chấm công.
+Ứng dụng web PHP để tạo daily report, gửi lên Slack hoặc Google Chat, lưu lịch sử và tùy chọn gửi kèm Google Form chấm công.
 
 ## Tính năng
 
@@ -9,7 +9,6 @@
 - Tiến độ, ngày dự kiến, chất lượng công việc và tinh thần.
 - Tự lưu/khôi phục bản nháp trên trình duyệt.
 - Nhập nhiều task, preview report và phím tắt `Ctrl/Cmd + Enter`.
-- Gửi kèm Google Form hoặc submit chấm công bù theo khoảng ngày.
 - Dashboard lịch sử với tìm kiếm và bộ lọc.
 - CSRF protection, TLS verification và dữ liệu runtime tách khỏi source.
 
@@ -51,17 +50,17 @@ Mở nút `Thiết lập` trên header. Hướng dẫn lấy từng thông tin c
 
 Bấm `Lưu thiết lập`. Webhook và thông tin thật chỉ được lưu trong Docker volume, không ghi vào source Git.
 
-### Google Form
+### Slack
 
-Phần này không bắt buộc. Nếu sử dụng, mở `Google Form` trong Settings và nhập:
+Trong Slack App, bật **Incoming Webhooks**, chọn **Add New Webhook to Workspace** và cấp quyền cho channel cần gửi. Dán URL vào **Incoming Webhook Slack** của project rồi lưu thiết lập.
 
-- Response URL có đuôi `/formResponse`.
-- Email chấm công.
-- Bộ phận/nhóm.
-- Giờ, phút bắt đầu và kết thúc.
-- Ghi chú gửi lên form.
+Slack là kênh mặc định trên form. Nhập người báo cáo, Issue, loại công việc và kết quả hôm nay. Trạng thái tự tính từ tiến độ; chất lượng mức 4 và tinh thần mức 4 hiển thị **Tốt**. Báo cáo có bốn mục: công việc, tự đánh giá, tinh thần, chia sẻ thêm. Ngày gửi dùng múi giờ Việt Nam.
 
-Backend hiện dùng bộ `entry.*` của Google Form đang được cấu hình cho dự án. Nếu đổi sang form có field ID khác, cần cập nhật mapping trong `send-webhook.php` và `submit-google-form.php`.
+### Google Form gửi kèm
+
+Giữ tùy chọn **Submit kèm Google Form** khi gửi báo cáo qua Slack hoặc Google Chat. Trong Thiết lập → Google Form, nhập response URL (`/formResponse`), email, bộ phận, giờ làm và ghi chú. Backend sử dụng mapping `entry.*` trong `send-webhook.php`.
+
+Giữ **Submit Google Form bù** để chấm công theo khoảng ngày.
 
 ## Cách sử dụng
 
@@ -84,7 +83,7 @@ Docker tự tạo hai named volume:
 | Volume | Dữ liệu |
 |---|---|
 | `history-data` | Config runtime và lịch sử report |
-| `logs-data` | Log PHP, Google Chat và Google Form |
+| `logs-data` | Log PHP và gửi báo cáo |
 
 Các volume vẫn tồn tại sau `docker compose down`. Không chạy `docker compose down -v` trừ khi thực sự muốn xóa toàn bộ config, lịch sử và log.
 
@@ -142,12 +141,12 @@ public/
   main.js                UI và AJAX
   config.php             Config mặc định an toàn
   save-config.php        Lưu config vào volume
-  send-webhook.php       Gửi Google Chat/Google Form
-  submit-google-form.php Submit chấm công theo ngày
+  send-webhook.php       Gửi Slack/Google Chat
+  slack-report.php       Định dạng báo cáo Slack
 ```
 
 ## Bảo mật
 
-- Không commit webhook, email nội bộ hoặc Google Form URL thật.
+- Không commit webhook thật.
 - Không copy `app-config.php` từ volume vào repository.
 - Nếu webhook từng bị lộ, hãy xóa/rotate webhook trong Google Chat Space.

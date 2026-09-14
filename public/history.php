@@ -66,7 +66,7 @@ function parseHistoryEntry($rawEntry, $file)
     $project = 'Report';
     $sentAt = $fileDate;
 
-    if (preg_match('/^\[Daily Report\]\s+(.*)\s+-\s+([A-Za-z]+,\s+\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})\s+\(GMT\+7\)$/u', $headerLine, $matches)) {
+    if (preg_match('/^\[Daily Report\]\s+(.*)\s+-\s+([A-Za-z]+,\s+\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})\s+\(GMT\+7\)(?: \[Slack\])?$/u', $headerLine, $matches)) {
         $project = trim($matches[1]);
         $sentAt = trim($matches[2]);
     }
@@ -76,6 +76,14 @@ function parseHistoryEntry($rawEntry, $file)
     $quality = extractFirstMatch('/^\*Chất lượng:\*\s*(.+)$/mu', $plain);
     $spirit = extractFirstMatch('/^\*Tinh thần:\*\s*(.+)$/mu', $plain);
     $note = extractFirstMatch('/^\*🗒️ Note:\*\s*(.+)$/mus', $plain);
+
+    if (str_ends_with($headerLine, '[Slack]')) {
+        preg_match_all('/^\s*• \*Công việc:\* (.+)$/mu', $plain, $taskMatches);
+        $todayTasks = $taskMatches[1];
+        $quality = extractFirstMatch('/^\*Đánh giá:\*\s*(.+)$/mu', $plain);
+        $spirit = extractFirstMatch('/^\*Mức độ:\*\s*(.+)$/mu', $plain);
+        $note = extractSection($plain, '*4. CHIA SẺ THÊM*', []);
+    }
 
     return [
         'id' => md5($file . $rawEntry),

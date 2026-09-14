@@ -321,13 +321,8 @@ function e($value)
                         <p class="mt-1">Dùng link ảnh HTTPS truy cập công khai, mở được khi không đăng nhập. Có thể dùng logo website hoặc ảnh trên CDN; ảnh vuông sẽ hiển thị đẹp nhất trên Google Chat.</p>
                     </section>
                     <section>
-                        <h3 class="font-semibold text-stone-900">Google Form chấm công</h3>
-                        <ol class="mt-1 list-decimal space-y-1 pl-4">
-                            <li>Mở form hiện đang dùng, chọn <strong>Preview</strong> và kiểm tra các trường Email, Bộ phận, ngày, giờ bắt đầu/kết thúc và ghi chú.</li>
-                            <li>Lấy URL submit có đuôi <code>/formResponse</code>; nếu đang có link <code>/viewform</code>, thay phần cuối thành <code>/formResponse</code>.</li>
-                            <li>Điền email, bộ phận và khung giờ mặc định đúng với thông tin chấm công của bạn.</li>
-                        </ol>
-                        <p class="mt-1 rounded-md bg-amber-50 p-2 text-amber-800">App hiện gửi theo bộ field ID của form đang dùng. Nếu đổi sang form mới, cần cập nhật các <code>entry.*</code> trong backend trước.</p>
+                        <h3 class="font-semibold text-stone-900">Slack Incoming Webhook</h3>
+                        <p class="mt-1">Trong Slack App, bật Incoming Webhooks → Add New Webhook to Workspace → chọn channel. Dán URL vào Incoming Webhook Slack của project rồi lưu thiết lập.</p>
                     </section>
                     <p class="rounded-md bg-rose-50 p-2 text-rose-700">Webhook là thông tin bí mật. Không gửi cho người khác hoặc commit URL thật lên Git.</p>
                 </div>
@@ -349,7 +344,7 @@ function e($value)
                     <div class="mb-2 flex items-center justify-between gap-2">
                         <div>
                             <div class="text-xs font-semibold text-sky-900">📁 Danh sách project</div>
-                            <div class="text-[11px] text-zinc-500">Tên, webhook Google Chat, logo/avatar.</div>
+                            <div class="text-[11px] text-zinc-500">Tên, webhook Google Chat/Slack, logo/avatar.</div>
                         </div>
                         <button type="button" id="addProject" class="h-7 rounded-md border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50">Thêm</button>
                     </div>
@@ -371,6 +366,10 @@ function e($value)
                                 <label class="mb-1 block">
                                     <span class="mb-1 block text-[11px] font-medium text-zinc-600">Webhook Google Chat</span>
                                     <input name="projects[webhook][]" class="project-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://chat.googleapis.com/..." value="<?= e($projectConfig['webhook'] ?? '') ?>">
+                                </label>
+                                <label class="mb-1 block">
+                                    <span class="mb-1 block text-[11px] font-medium text-zinc-600">Incoming Webhook Slack</span>
+                                    <input name="projects[slack_webhook][]" class="project-slack-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs" placeholder="https://hooks.slack.com/services/..." value="<?= e($projectConfig['slack_webhook'] ?? '') ?>">
                                 </label>
                                 <label class="block">
                                     <span class="mb-1 block text-[11px] font-medium text-zinc-600">Logo/avatar URL</span>
@@ -436,6 +435,7 @@ function e($value)
                 </button>
             </form>
 
+
             <form id="googleFormRangeForm" class="settings-card setting-range mt-3 space-y-2.5 p-3">
                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                 <div>
@@ -477,6 +477,21 @@ function e($value)
                         </select>
                     </div>
                 </div>
+            </div>
+
+            <div class="rounded-xl border border-zinc-200 bg-white p-3 space-y-3">
+                <label class="block text-sm font-medium">Kênh gửi
+                    <select name="destination" id="destination" class="h-9 w-full rounded-md border border-zinc-200 bg-white px-3">
+                        <option value="google_chat">Google Chat</option><option value="slack" selected>Slack</option>
+                    </select>
+                </label>
+                <label class="block text-sm font-medium">Người báo cáo (bắt buộc khi gửi Slack)
+                    <input name="reporter" id="reporter" maxlength="100" placeholder="vuong.toan" class="h-9 w-full rounded-md border border-zinc-200 px-3">
+                </label>
+                <label class="block text-sm font-medium">Kết quả hôm nay
+                    <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="w-full rounded-md border border-zinc-200 px-3 py-2" placeholder="Kết quả và chất lượng công việc hôm nay..."></textarea>
+                </label>
+                <p class="text-xs text-zinc-500">Slack: trạng thái theo tiến độ (0%: Chưa bắt đầu; 1–99%: Đang thực hiện; 100%: Hoàn thành). Tinh thần mức 4 hiển thị là Tốt.</p>
             </div>
 
             <!-- Task hôm nay -->

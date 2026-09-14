@@ -5,10 +5,12 @@ return [
     'projects' => [
         'JRR' => [
             'webhook' => '',
+            'slack_webhook' => '',
             'avatar' => 'https://www.jrr.jp/wp-content/uploads/2026/04/favicon.png',
         ],
         'Primass' => [
             'webhook' => '',
+            'slack_webhook' => '',
             'avatar' => 'https://www.jumvea.or.jp/logo_thumb_img/logo_thumb_576.jpeg',
         ],
     ],

@@ -22,6 +22,7 @@ $projects = [];
 $postedProjects = $_POST['projects'] ?? [];
 $names = $postedProjects['name'] ?? [];
 $webhooks = $postedProjects['webhook'] ?? [];
+$slackWebhooks = $postedProjects['slack_webhook'] ?? [];
 $avatars = $postedProjects['avatar'] ?? [];
 
 foreach ($names as $index => $name) {
@@ -32,6 +33,7 @@ foreach ($names as $index => $name) {
 
     $projects[$projectName] = [
         'webhook' => clean($webhooks[$index] ?? ''),
+        'slack_webhook' => clean($slackWebhooks[$index] ?? ''),
         'avatar' => clean($avatars[$index] ?? ''),
     ];
 }
