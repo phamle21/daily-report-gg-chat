@@ -95,7 +95,7 @@ $(document).ready(function () {
         if (select.dataset.customSelect === 'true' || select.closest('.swal2-container') || select.classList.contains('swal2-select')) return;
         select.dataset.customSelect = 'true';
         const layoutClasses = Array.from(select.classList).filter(function (name) {
-            return /(^|:)(w-|min-w-|max-w-|flex-)/.test(name);
+            return /(^|:)(w-|min-w-|max-w-|flex-|dr-col-)/.test(name);
         });
         const $root = $('<div class="dr-select"></div>').addClass(layoutClasses.join(' '));
         const $trigger = $('<button type="button" class="dr-select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="dr-select-label truncate"></span><span class="dr-select-caret" aria-hidden="true">⌄</span></button>');
@@ -153,6 +153,111 @@ $(document).ready(function () {
         }
     });
 
+
+    // ===== COMBOBOX (input tự do + menu gợi ý dùng lại style .dr-select-menu) =====
+    const COMBO_SOURCES = {
+        workType: () => $('#workTypeList option').map(function () { return $(this).attr('value'); }).get()
+    };
+
+    function comboOptions($input) {
+        const source = COMBO_SOURCES[$input.data('combo')];
+        return source ? source() : [];
+    }
+
+    function renderComboMenu($root) {
+        const $input = $root.find('input');
+        const $menu = $root.data('floatingMenu');
+        const typed = String($input.val() || '').trim().toLowerCase();
+        const all = comboOptions($input);
+        // Lọc theo những gì đang gõ; không khớp gì thì vẫn cho xem toàn bộ danh sách.
+        const matched = typed ? all.filter(option => option.toLowerCase().includes(typed)) : all;
+        const options = matched.length ? matched : all;
+        $menu.empty();
+        options.forEach(function (option) {
+            $('<button type="button" class="dr-select-option"></button>')
+                .text(option)
+                .toggleClass('is-selected', option.toLowerCase() === typed)
+                .appendTo($menu);
+        });
+    }
+
+    function closeCombos(except) {
+        $('.dr-combo.is-open').each(function () {
+            if (except && this === except) return;
+            const $root = $(this);
+            $root.removeClass('is-open');
+            hideFloating($root.data('floatingMenu') || $());
+        });
+    }
+
+    function openCombo($root) {
+        const $menu = $root.data('floatingMenu');
+        const rect = $root.find('input')[0].getBoundingClientRect();
+        renderComboMenu($root);
+        $menu.appendTo(document.body).css({ left: rect.left, top: rect.bottom + 6, width: Math.max(rect.width, 150) });
+        $root.addClass('is-open');
+        showFloating($menu);
+    }
+
+    function enhanceCombo(input) {
+        if (input.dataset.comboReady === 'true') return;
+        input.dataset.comboReady = 'true';
+        const layoutClasses = Array.from(input.classList).filter(name => /(^|:)(w-|min-w-|max-w-|flex-|dr-col-)/.test(name));
+        const $root = $('<div class="dr-combo"></div>').addClass(layoutClasses.join(' '));
+        const $toggle = $('<button type="button" class="dr-combo-toggle" tabindex="-1" aria-label="Xem gợi ý">⌄</button>');
+        const $menu = $('<div class="dr-select-menu hidden" role="listbox" popover="manual"></div>');
+        $(input).wrap($root).after($toggle);
+        $(input).closest('.dr-combo').data('floatingMenu', $menu);
+    }
+
+    $('input[data-combo]').each(function () { enhanceCombo(this); });
+
+    $(document).on('focus click', '.dr-combo input', function (event) {
+        event.stopPropagation();
+        const $root = $(this).closest('.dr-combo');
+        closeCustomSelects();
+        closeCombos($root[0]);
+        openCombo($root);
+    });
+    $(document).on('input', '.dr-combo input', function () {
+        const $root = $(this).closest('.dr-combo');
+        if ($root.hasClass('is-open')) renderComboMenu($root);
+    });
+    $(document).on('click', '.dr-combo-toggle', function (event) {
+        event.stopPropagation();
+        const $root = $(this).closest('.dr-combo');
+        if ($root.hasClass('is-open')) { closeCombos(); return; }
+        closeCombos();
+        openCombo($root);
+        $root.find('input').focus();
+    });
+    $(document).on('keydown', '.dr-combo input', function (event) {
+        if (event.key === 'Escape') closeCombos();
+    });
+    $(document).on('click', function () { closeCombos(); });
+    $(window).on('resize scroll', function () { closeCombos(); });
+
+    // Chọn gợi ý: menu đã được đưa ra body nên tìm ngược về combo đang mở.
+    $(document).on('mousedown', '.dr-select-menu .dr-select-option', function (event) {
+        const $root = $('.dr-combo.is-open');
+        if (!$root.length || !$.contains($root.data('floatingMenu')[0], this)) return;
+        event.preventDefault();
+        $root.find('input').val($(this).text()).trigger('change');
+        closeCombos();
+    });
+
+    // ===== TEXTAREA TỰ CAO THEO NỘI DUNG =====
+    function autoGrow(element) {
+        if (!element) return;
+        element.style.height = 'auto';
+        element.style.height = Math.min(element.scrollHeight, 220) + 'px';
+    }
+    $(document).on('input change', 'textarea.dr-input', function () { autoGrow(this); });
+    function autoGrowAll() { $('textarea.dr-input').each(function () { autoGrow(this); }); }
+
+    // ===== ĐẾM KÝ TỰ Ô TỰ ĐÁNH GIÁ =====
+    $('#dailyResult').on('input', function () { $('#dailyResultCount').text(this.value.length); }).trigger('input');
+
     function formatDisplayDate(value) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return 'Chọn ngày';
         const parts = value.split('-');
@@ -179,7 +284,6 @@ $(document).ready(function () {
         const firstDay = new Date(year, month, 1);
         const gridStart = new Date(year, month, 1 - firstDay.getDay());
         const todayValue = dateToValue(new Date());
-        const disallowPast = String(input.name || '').includes('tasks_today') && String(input.name || '').includes('[estimate]');
         $calendar.find('.dr-calendar-title').text(`Tháng ${month + 1}, ${year}`);
         const $grid = $calendar.find('.dr-calendar-grid').empty();
         ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].forEach(day => $grid.append($('<div class="dr-calendar-weekday"></div>').text(day)));
@@ -187,15 +291,12 @@ $(document).ready(function () {
             const date = new Date(gridStart);
             date.setDate(gridStart.getDate() + index);
             const value = dateToValue(date);
-            const isPast = disallowPast && value < ($('#reportDate').val() || todayValue);
             $('<button type="button" class="dr-calendar-day"></button>')
                 .text(date.getDate())
                 .attr('data-date', value)
                 .toggleClass('is-outside', date.getMonth() !== month)
                 .toggleClass('is-today', value === todayValue)
                 .toggleClass('is-selected', value === input.value)
-                .toggleClass('cursor-not-allowed opacity-30', isPast)
-                .prop('disabled', isPast)
                 .appendTo($grid);
         }
     }
@@ -205,7 +306,7 @@ $(document).ready(function () {
         input.dataset.customDate = 'true';
         input.dataset.wasRequired = input.required ? 'true' : 'false';
         input.required = false;
-        const layoutClasses = Array.from(input.classList).filter(name => /(^|:)(w-|min-w-|max-w-|flex-)/.test(name));
+        const layoutClasses = Array.from(input.classList).filter(name => /(^|:)(w-|min-w-|max-w-|flex-|dr-col-)/.test(name));
         const $root = $('<div class="dr-date"></div>').addClass(layoutClasses.join(' '));
         const $trigger = $('<button type="button" class="dr-date-trigger" aria-haspopup="dialog" aria-expanded="false"><span class="dr-date-label"></span><span aria-hidden="true">▣</span></button>');
         const calendarIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 10h18"></path></svg>';
@@ -279,6 +380,10 @@ $(document).ready(function () {
                 node.querySelectorAll('select').forEach(enhanceSelect);
                 if (node.matches('input[type="date"]')) enhanceDateInput(node);
                 node.querySelectorAll('input[type="date"]').forEach(enhanceDateInput);
+                if (node.matches('input[data-combo]')) enhanceCombo(node);
+                node.querySelectorAll('input[data-combo]').forEach(enhanceCombo);
+                if (node.matches('textarea.dr-input')) autoGrow(node);
+                node.querySelectorAll('textarea.dr-input').forEach(autoGrow);
             });
         });
     });
@@ -407,96 +512,61 @@ $(document).ready(function () {
     updateProjectLogo();
 
     // ===== TASK HÔM NAY =====
+    const TASK_STATUSES = ['Chưa bắt đầu', 'Đang thực hiện', 'Chờ review', 'Tạm hoãn', 'Hoàn thành'];
+    const DEFAULT_TASK_STATUS = 'Đang thực hiện';
+
     function taskTodayHtml(idx) {
         let options = '';
-        for (let i = 0; i <= 100; i += 10) {
+        // Đổ từ 100% xuống 0% để mức hay chọn nhất nằm ngay đầu danh sách.
+        for (let i = 100; i >= 0; i -= 10) {
             options += `<option value="${i}">${i}%</option>`;
         }
+        const statusOptions = TASK_STATUSES
+            .map(status => `<option value="${status}"${status === DEFAULT_TASK_STATUS ? ' selected' : ''}>${status}</option>`)
+            .join('');
 
-        return `<div class="task-today-item task-sortable animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button type="button" class="task-drag-handle hidden h-9 w-7 flex-shrink-0 items-center justify-center text-zinc-400 hover:text-zinc-700 sm:flex" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
-                <input type="text" name="tasks_today[${idx}][issue_no]" class="h-9 w-full flex-shrink-0 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 sm:w-28" aria-label="Issue/Task no" placeholder="#999 / Feature" />
-                <input type="text" name="tasks_today[${idx}][work_type]" list="workTypeList" class="h-9 w-full flex-shrink-0 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 sm:w-32" aria-label="Loại công việc" placeholder="Coding" />
-                <input type="text" name="tasks_today[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" aria-label="Nội dung công việc" placeholder="Bug khi thêm mới sản phẩm (Môi trường Prod)..." required/>
-                <div class="flex w-full gap-2 sm:w-auto">
-                    <select name="tasks_today[${idx}][progress]" class="h-9 w-24 flex-shrink-0 cursor-pointer rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" required>
-                        <option value="">--%</option>${options}
-                    </select>
-                    <input type="date" name="tasks_today[${idx}][estimate]" class="h-9 flex-1 cursor-pointer rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 sm:w-40" />
-                    <button type="button" class="remove-task flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-400 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" title="Xóa">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-            </div>
+        return `<div class="task-today-item task-sortable dr-taskrow" data-idx="${idx}">
+            <button type="button" class="task-drag-handle dr-taskrow-drag" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
+            <input type="text" name="tasks_today[${idx}][issue_no]" class="dr-input dr-col-issue" aria-label="Issue" placeholder="Issue" />
+            <textarea name="tasks_today[${idx}][content]" rows="1" class="dr-input dr-col-title" aria-label="Task" placeholder="Mô tả công việc..." required></textarea>
+            <input type="text" name="tasks_today[${idx}][work_type]" data-combo="workType" class="dr-input dr-col-type" aria-label="Loại công việc" placeholder="Coding" autocomplete="off" />
+            <select name="tasks_today[${idx}][status]" class="dr-input dr-col-status" aria-label="Trạng thái">${statusOptions}</select>
+            <select name="tasks_today[${idx}][progress]" class="dr-input dr-col-progress" aria-label="Tiến độ" required>
+                <option value="">--%</option>${options}
+            </select>
+            <input type="date" name="tasks_today[${idx}][estimate]" class="dr-input dr-col-date" aria-label="Ngày dự kiến hoàn thành" />
+            <button type="button" class="remove-task dr-taskrow-remove" title="Xóa task" aria-label="Xóa task">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
         </div>`;
     }
 
     function syncSubmitRequirements() {
         const needsTasks = $('#submitGoogleChat, #submitSlack').is(':checked');
-        $('#tasks-today-list input[name*="[content]"], #tasks-today-list select[name*="[progress]"]').prop('required', needsTasks);
+        $('#tasks-today-list [name*="[content]"], #tasks-today-list select[name*="[progress]"]').prop('required', needsTasks);
     }
     $('#submitGoogleChat, #submitSlack').on('change', syncSubmitRequirements);
 
-    function updateTodayEstimateState($item) {
+    function updateTodayTaskState($item) {
         syncSubmitRequirements();
-        const progress = $item.find('select[name*="[progress]"]').val();
         const $estimate = $item.find('input[name*="[estimate]"]');
-
-        if (progress === '100') {
-            $estimate.val('').prop('required', false).prop('disabled', true).addClass('bg-zinc-100 text-zinc-400');
-            if ($estimate[0]) syncDateControl($estimate[0]);
-            return;
-        }
-
-        $estimate.prop('disabled', false).toggleClass('bg-zinc-100 text-zinc-400', false);
-        // Custom calendar is validated by validateTodayTasks to avoid focusing the hidden native input.
-        $estimate.prop('required', false);
+        // Estimate date is optional and unconstrained; only keep the custom date control in sync.
         if ($estimate[0]) syncDateControl($estimate[0]);
     }
 
-    function validateTodayTasks() {
-        let isValid = true;
-        let firstInvalid = null;
-        let invalidReason = 'missing';
-        const todayValue = $('#reportDate').val();
 
-        $('#tasks-today-list .task-today-item').each(function () {
-            const $item = $(this);
-            const content = $item.find('input[name*="[content]"]').val().trim();
-            const progress = $item.find('select[name*="[progress]"]').val();
-            const $estimate = $item.find('input[name*="[estimate]"]');
-
-            updateTodayEstimateState($item);
-            if (content && progress !== '' && Number(progress) < 100 && !$estimate.val()) {
-                isValid = false;
-                if (!firstInvalid) {
-                    firstInvalid = $estimate;
-                    invalidReason = 'missing';
-                }
-            } else if (content && Number(progress) < 100 && $estimate.val() && $estimate.val() < todayValue) {
-                isValid = false;
-                if (!firstInvalid) {
-                    firstInvalid = $estimate;
-                    invalidReason = 'past';
-                }
-            }
-        });
-
-        if (!isValid) {
-            Swal.fire({
-                icon: 'warning',
-                title: invalidReason === 'past' ? 'Ngày dự kiến không hợp lệ' : 'Cần ngày dự kiến',
-                text: invalidReason === 'past' ? 'Ngày dự kiến hoàn thành không được trước ngày báo cáo.' : 'Task hôm nay chưa đạt 100% phải có ngày dự kiến.',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 2500
-            });
-            firstInvalid.focus();
+    function splitIssueFromTitle(value) {
+        let rest = String(value || '').trim();
+        const parts = [];
+        let match;
+        while ((match = rest.match(/^\[([^\]]*)\]\s*/))) {
+            const label = match[1].trim();
+            if (label) parts.push(label);
+            rest = rest.slice(match[0].length);
         }
 
-        return isValid;
+        // A title made of nothing but brackets stays the task content.
+        return rest.trim() ? { issue: parts.join(' '), content: rest.trim() } : { issue: '', content: String(value || '').trim() };
     }
 
     function normalizeProgress(value) {
@@ -527,17 +597,10 @@ $(document).ready(function () {
 
     function parseBulkTodayTasks(text) {
         return String(text || '').split(/\r?\n/).map(function (line) {
-            let rest = line.trim();
-            let issue_no = '';
-            const issueMatch = rest.match(/^\[([^\]]+)\]\s*/);
-            if (issueMatch) {
-                issue_no = issueMatch[1].trim();
-                rest = rest.slice(issueMatch[0].length);
-            }
-
-            const parts = rest.split('|').map(part => part.trim());
+            const parts = line.trim().split('|').map(part => part.trim());
             const content = parts.shift() || '';
             let work_type = '';
+            let status = '';
             let progress = '';
             let estimate = '';
             parts.forEach(function (part) {
@@ -551,11 +614,15 @@ $(document).ready(function () {
                     progress = normalizeProgress(part);
                     return;
                 }
+                const asStatus = TASK_STATUSES.find(item => item.toLowerCase() === part.toLowerCase());
+                if (asStatus) {
+                    status = asStatus;
+                    return;
+                }
                 work_type = part;
             });
-            if (progress === '100') estimate = '';
 
-            return { issue_no, work_type, content, progress, estimate };
+            return { work_type, content, status, progress, estimate };
         }).filter(task => task.content);
     }
 
@@ -563,10 +630,11 @@ $(document).ready(function () {
         let $emptyItem = $();
         $('#tasks-today-list .task-today-item').each(function () {
             const $item = $(this);
-            const content = $item.find('input[name*="[content]"]').val().trim();
+            const content = $item.find('[name*="[content]"]').val().trim();
             const progress = $item.find('select[name*="[progress]"]').val();
             const estimate = $item.find('input[name*="[estimate]"]').val();
-            if (!content && !progress && !estimate) {
+            const issue = $item.find('input[name*="[issue_no]"]').val().trim();
+            if (!content && !progress && !estimate && !issue) {
                 $emptyItem = $item;
                 return false;
             }
@@ -586,18 +654,24 @@ $(document).ready(function () {
     }
 
     function getAiTaskPrompt() {
-        return `Tổng hợp các thông tin đã trao đổi trong ngày trong cuộc trò chuyện này thành task để tôi copy vào form multi tasks. Bao gồm trao đổi với agent, phân tích, nghiên cứu, thống nhất phương án và việc đã thực hiện, kể cả chưa có commit. Dùng thêm ghi chú bên dưới nếu có.
+        const project = $('#project').val() || '';
+        const reportDate = formatDisplayDate($('#reportDate').val());
+        return `Tổng hợp công việc của tôi cho dự án ${project} trong ngày ${reportDate} thành danh sách task báo cáo.
 
-Chỉ trả plain text, mỗi task một dòng theo cấu trúc:
-[Issue/Feature] Nội dung task | Loại | tiến độ% | ngày dự kiến
+Nguồn tổng hợp: chính cuộc trò chuyện này — gồm trao đổi với agent, phân tích, nghiên cứu, thống nhất phương án và việc đã thực hiện, kể cả phần chưa có commit. Dùng thêm ghi chú bổ sung ở cuối prompt nếu có.
 
-- [Issue/Feature] là issue/ticket hoặc tên feature nếu có, ví dụ [Issue 999] hoặc [Feature]; bỏ hẳn cặp ngoặc nếu không có, không tự bịa.
+Kết quả tôi sẽ dán thẳng vào ô "Nhập nhiều dòng" của form daily report, nên chỉ trả plain text, mỗi task một dòng theo cấu trúc:
+Tiêu đề task | Loại | Trạng thái | tiến độ% | ngày dự kiến
+
+- Tiêu đề bắt đầu bằng issue/ticket hoặc tên feature trong ngoặc vuông nếu có, ví dụ [Issue] [999] Sửa lỗi thêm sản phẩm hoặc [Feature] Màn hình quản lý; bỏ hẳn ngoặc vuông nếu không có, không tự bịa.
 - Loại chọn phù hợp nhất (Coding, Fix bug, Feature, Testing, Review, Research, Discussion, Design, Detail Design, Meeting, Deploy...); nếu không chắc thì dùng Coding.
+- Trạng thái chọn đúng một trong: Chưa bắt đầu, Đang thực hiện, Chờ review, Tạm hoãn, Hoàn thành; nếu không chắc thì dùng Đang thực hiện.
 - Viết ngắn, gộp ý trùng.
 - Mô tả đúng việc thực tế: chỉ trao đổi/phân tích thì ghi rõ, không viết thành đã code, sửa xong hay triển khai.
 - Tiến độ từ 0–100%, theo bước 10%; dựa trên kết quả trao đổi, ước lượng thận trọng nếu chưa có số cụ thể. Không dùng việc có/chưa có commit để kết luận hoàn thành.
-- Task đã hoàn thành: ... | 100% (bỏ ngày dự kiến). Một task phân tích/trao đổi có thể hoàn thành nếu đã đạt mục tiêu của chính task đó.
-- Task chưa xong: tiến độ dưới 100% và có ngày dự kiến YYYY-MM-DD từ ngày báo cáo ${$('#reportDate').val()} trở đi; nếu chưa có ngày thì dùng ${getTomorrowDate()}.
+- Task đã hoàn thành: ... | Hoàn thành | 100% (bỏ ngày dự kiến). Một task phân tích/trao đổi có thể hoàn thành nếu đã đạt mục tiêu của chính task đó.
+- Task chưa xong: tiến độ dưới 100%, kèm ngày dự kiến YYYY-MM-DD nếu ước lượng được; không chắc thì bỏ trống, ví dụ ${getTomorrowDate()}.
+- Chỉ tính công việc thuộc dự án ${project} và phát sinh trong ngày ${reportDate}; bỏ qua phần ngoài phạm vi này.
 - Không thêm tiêu đề, bullet, bảng, code block hoặc giải thích; không dùng dấu | bên trong nội dung task. Nếu không có thông tin công việc thì không tạo task.
 
 Ghi chú bổ sung (nếu có):
@@ -611,53 +685,50 @@ Ghi chú bổ sung (nếu có):
             $item = $('#tasks-today-list .task-today-item').last();
         }
 
-        $item.find('input[name*="[issue_no]"]').val(task.issue_no || task.issue || '');
+        const split = splitIssueFromTitle(task.content);
+        const issue = String(task.issue_no || task.issue || split.issue || '').trim();
         $item.find('input[name*="[work_type]"]').val(task.work_type || 'Coding');
-        $item.find('input[name*="[content]"]').val(task.content);
+        $item.find('input[name*="[issue_no]"]').val(issue);
+        $item.find('[name*="[content]"]').val(split.content);
+        $item.find('select[name*="[status]"]').val(TASK_STATUSES.includes(task.status) ? task.status : DEFAULT_TASK_STATUS);
         $item.find('select[name*="[progress]"]').val(task.progress);
         $item.find('input[name*="[estimate]"]').val(task.estimate);
-        updateTodayEstimateState($item);
+        autoGrow($item.find('[name*="[content]"]')[0]);
+        updateTodayTaskState($item);
     }
 
     // ===== TASK NGÀY MAI =====
     function taskTomorrowHtml(idx) {
-        return `<div class="task-tomorrow-item task-sortable animate-slide-up" data-idx="${idx}" style="animation: fadeIn 0.3s ease-out both;">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button type="button" class="task-drag-handle hidden h-9 w-7 flex-shrink-0 items-center justify-center text-zinc-400 hover:text-zinc-700 sm:flex" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
-                <div class="flex w-full gap-2 sm:w-auto">
-                    <select name="tasks_tomorrow[${idx}][type]" class="h-9 w-32 flex-shrink-0 cursor-pointer rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
-                        <option value="new">New</option>
-                        <option value="continue">Continue</option>
-                    </select>
-                </div>
-                <input type="text" name="tasks_tomorrow[${idx}][content]" class="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 shadow-sm placeholder:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="Nội dung task..." />
-                <div class="flex w-full gap-2 sm:w-auto">
-                    <button type="button" class="remove-task flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-400 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" title="Xóa">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-            </div>
+        return `<div class="task-tomorrow-item task-sortable dr-taskrow" data-idx="${idx}">
+            <button type="button" class="task-drag-handle dr-taskrow-drag" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
+            <select name="tasks_tomorrow[${idx}][type]" class="dr-input dr-col-type" aria-label="Loại kế hoạch">
+                <option value="new">New</option>
+                <option value="continue">Continue</option>
+            </select>
+            <textarea name="tasks_tomorrow[${idx}][content]" rows="1" class="dr-input dr-col-title" aria-label="Nội dung kế hoạch" placeholder="Nội dung task..."></textarea>
+            <button type="button" class="remove-task dr-taskrow-remove" title="Xóa task" aria-label="Xóa task">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
         </div>`;
     }
 
     // ===== INIT =====
     let taskTodayIdx = 0, taskTomorrowIdx = 0;
     $('#tasks-today-list').append(taskTodayHtml(taskTodayIdx++));
-    updateTodayEstimateState($('#tasks-today-list .task-today-item').last());
+    updateTodayTaskState($('#tasks-today-list .task-today-item').last());
     $('#add-task-today').click(function () {
         const html = taskTodayHtml(taskTodayIdx++);
         $('#tasks-today-list').append(html);
         const $lastItem = $('#tasks-today-list .task-today-item').last();
-        updateTodayEstimateState($lastItem);
-        const $lastInput = $lastItem.find('input[type="text"]');
-        $lastInput.focus();
+        updateTodayTaskState($lastItem);
+        $lastItem.find('[name*="[content]"]').focus();
     });
     $('#bulk-task-today').click(function () {
         Swal.fire({
             title: 'Nhập nhiều task',
-            html: `<textarea id="bulkTaskTodayText" class="dr-modal-field" spellcheck="false" placeholder="[Issue 999] Bug khi thêm mới sản phẩm | Coding | 50%
-[Feature] Quản lý sản phẩm | Detail Design | 60% | 2026-09-20
-Task C | 100%"></textarea>`,
+            html: `<textarea id="bulkTaskTodayText" class="dr-modal-field" spellcheck="false" placeholder="[Issue] [999] Bug khi thêm mới sản phẩm | Coding | Đang thực hiện | 50%
+[Feature] Quản lý sản phẩm | Detail Design | Chờ review | 60% | 2026-09-20
+Task C | Hoàn thành | 100%"></textarea>`,
             buttonsStyling: false,
             customClass: {
                 popup: 'dr-swal',
@@ -690,7 +761,6 @@ Task C | 100%"></textarea>`,
             }
 
             result.value.forEach(addTodayTask);
-            validateTodayTasks();
             scheduleDraftSave();
         });
     });
@@ -698,7 +768,10 @@ Task C | 100%"></textarea>`,
         const prompt = getAiTaskPrompt();
         Swal.fire({
             title: 'Prompt AI tạo multi tasks',
-            html: `<textarea id="aiTaskPromptText" class="dr-modal-field" readonly>${escapeHtml(prompt)}</textarea>`,
+            html: `<p class="dr-modal-note">Prompt này đã gắn sẵn dự án <b>${escapeHtml($('#project').val() || '')}</b> và ngày <b>${escapeHtml(formatDisplayDate($('#reportDate').val()))}</b>.
+                <br>Copy prompt → dán vào AI đang làm việc cùng bạn (Claude, ChatGPT, agent trong IDE...) → nó đọc lại cuộc trò chuyện hôm nay và trả về danh sách task.
+                <br>Chép kết quả đó dán vào nút <b>Nhập nhiều dòng</b>, form sẽ tự tách thành từng dòng task.</p>
+                <textarea id="aiTaskPromptText" class="dr-modal-field" readonly>${escapeHtml(prompt)}</textarea>`,
             buttonsStyling: false,
             customClass: {
                 popup: 'dr-swal',
@@ -782,7 +855,7 @@ Task C | 100%"></textarea>`,
     $(document).on('click', '.remove-task', async function () {
         const $item = $(this).closest('.task-today-item, .task-tomorrow-item');
         const $parent = $item.closest('#tasks-today-list, #tasks-tomorrow-list');
-        const taskContent = $item.find('input[name*="[content]"]').val().trim();
+        const taskContent = $item.find('[name*="[content]"]').val().trim();
         const result = await confirmDelete('Xóa task?', taskContent ? `“${taskContent}” sẽ bị xóa khỏi báo cáo.` : 'Dòng task này sẽ bị xóa khỏi báo cáo.');
         if (!result.isConfirmed) return;
         $item.fadeOut(200, function () {
@@ -790,7 +863,7 @@ Task C | 100%"></textarea>`,
             if ($parent.children().length === 0) {
                 if ($parent.attr('id') === 'tasks-today-list') {
                     $parent.append(taskTodayHtml(taskTodayIdx++));
-                    updateTodayEstimateState($parent.children().last());
+                    updateTodayTaskState($parent.children().last());
                 } else {
                     $parent.append(taskTomorrowHtml(taskTomorrowIdx++));
                 }
@@ -800,11 +873,19 @@ Task C | 100%"></textarea>`,
     });
 
     $(document).on('change', '.task-today-item select[name*="[progress]"]', function () {
-        updateTodayEstimateState($(this).closest('.task-today-item'));
+        updateTodayTaskState($(this).closest('.task-today-item'));
+    });
+
+    $(document).on('change', '.task-today-item select[name*="[status]"]', function () {
+        const $item = $(this).closest('.task-today-item');
+        if ($(this).val() === 'Hoàn thành') {
+            $item.find('select[name*="[progress]"]').val('100');
+        }
+        updateTodayTaskState($item);
     });
 
     $(document).on('input change', '.task-today-item input[name*="[estimate]"]', function () {
-        updateTodayEstimateState($(this).closest('.task-today-item'));
+        updateTodayTaskState($(this).closest('.task-today-item'));
     });
 
     // ===== Chất lượng =====
@@ -875,9 +956,10 @@ Task C | 100%"></textarea>`,
         const tomorrowTasks = [];
         $('#tasks-today-list .task-today-item').each(function () {
             todayTasks.push({
-                issue_no: $(this).find('input[name*="[issue_no]"]').val(),
                 work_type: $(this).find('input[name*="[work_type]"]').val(),
-                content: $(this).find('input[name*="[content]"]').val(),
+                issue_no: $(this).find('input[name*="[issue_no]"]').val(),
+                content: $(this).find('[name*="[content]"]').val(),
+                status: $(this).find('select[name*="[status]"]').val(),
                 progress: $(this).find('select[name*="[progress]"]').val(),
                 estimate: $(this).find('input[name*="[estimate]"]').val()
             });
@@ -885,7 +967,7 @@ Task C | 100%"></textarea>`,
         $('#tasks-tomorrow-list .task-tomorrow-item').each(function () {
             tomorrowTasks.push({
                 type: $(this).find('select[name*="[type]"]').val(),
-                content: $(this).find('input[name*="[content]"]').val()
+                content: $(this).find('[name*="[content]"]').val()
             });
         });
         return {
@@ -945,7 +1027,7 @@ Task C | 100%"></textarea>`,
             $('#tasks-tomorrow-list').append(taskTomorrowHtml(taskTomorrowIdx++));
             const $item = $('#tasks-tomorrow-list .task-tomorrow-item').last();
             $item.find('select[name*="[type]"]').val(task.type || 'new');
-            $item.find('input[name*="[content]"]').val(task.content || '');
+            $item.find('[name*="[content]"]').val(task.content || '');
         });
         if (!(draft.tomorrowTasks || []).length) {
             $('#tasks-tomorrow-list').append(taskTomorrowHtml(taskTomorrowIdx++));
@@ -955,6 +1037,7 @@ Task C | 100%"></textarea>`,
         $('#quality-list .quality-btn[data-value="' + (draft.quality || 3) + '"]').trigger('click');
         $('#spirit-list .react-emoji[data-value="' + (draft.spirit || 3) + '"]').trigger('click');
         updateProjectLogo();
+        autoGrowAll();
         updateDraftStatus(draft.savedAt || new Date().toISOString());
     }
 
@@ -978,48 +1061,151 @@ Task C | 100%"></textarea>`,
         $(this).addClass('hidden');
     });
 
-    function previewHtml() {
-        const draft = collectDraft();
-        const formPreview = `<p class="mt-3 text-xs text-zinc-500">Submit kèm: ${[draft.submitGoogleForm && 'RCNV logtime', draft.submitGoogleChat && 'Google Chat', draft.submitSlack && 'Slack'].filter(Boolean).join(', ') || 'Chưa chọn'}</p>`;
-        if (draft.submitSlack) {
-            const quality = {1: 'Kém', 2: 'Trung bình', 3: 'Khá', 4: 'Tốt', 5: 'Xuất sắc'};
-            const spirit = {1: 'Cạn pin', 2: 'Cần cà phê', 3: 'Ổn định', 4: 'Tốt', 5: 'Bứt phá'};
-            const tasks = draft.todayTasks.filter(task => String(task.content || '').trim()).map(task => {
-                const status = task.progress === '' ? 'Chưa cập nhật' : Number(task.progress) === 100 ? 'Hoàn thành' : Number(task.progress) === 0 ? 'Chưa bắt đầu' : 'Đang thực hiện';
-                return `<li class="mb-3"><strong>Issue:</strong> <code>${escapeHtml(task.issue_no || 'Không có')}</code><br>• <strong>Công việc:</strong> ${escapeHtml(task.content)}<br>• <strong>Loại:</strong> ${escapeHtml(task.work_type || 'Coding')}<br>• <strong>Trạng thái:</strong> ${status}<br>• <strong>Tiến độ:</strong> ${task.progress === '' ? 'Chưa cập nhật' : escapeHtml(task.progress) + '%'}</li>`;
-            }).join('');
-            return `<div class="text-left text-sm space-y-3">
-                <h2 class="font-bold">BÁO CÁO CÔNG VIỆC HẰNG NGÀY</h2>
-                <p><strong>Người báo cáo:</strong> <code>${escapeHtml($('#dailyReportForm').attr('data-reporter'))}</code><br><strong>Ngày:</strong> <code>${escapeHtml((draft.reportDate || '').replaceAll('-', '/'))}</code></p>
-                <h3 class="font-bold">1. CÔNG VIỆC TRONG NGÀY</h3><ul>${tasks}</ul>
-                <h3 class="font-bold">2. TỰ ĐÁNH GIÁ KẾT QUẢ & CHẤT LƯỢNG</h3>
-                <p class="whitespace-pre-wrap"><strong>Kết quả hôm nay:</strong> ${escapeHtml(draft.dailyResult || 'Không có.')}</p><p><strong>Đánh giá:</strong> ${quality[draft.quality] || 'Khá'}</p>
-                <h3 class="font-bold">3. CẢM XÚC & TINH THẦN</h3><p><strong>Mức độ:</strong> ${spirit[draft.spirit] || 'Ổn định'}</p>
-                <h3 class="font-bold">4. CHIA SẺ THÊM</h3><p class="whitespace-pre-wrap">${escapeHtml(draft.note || 'Không có.')}</p>
-                ${formPreview}
-            </div>`;
-        }
-        const today = draft.todayTasks.filter(task => String(task.content || '').trim()).map(function (task) {
-            const prefix = task.issue_no ? `[${escapeHtml(task.issue_no)}] ` : '';
-            const suffix = ` - ${escapeHtml(task.work_type || 'Coding')}${task.progress ? ` ${escapeHtml(task.progress)}%` : ''}`;
-            const extra = task.estimate ? ` · ${escapeHtml(task.estimate)}` : '';
-            return `<li class="rounded-md bg-zinc-50 px-3 py-2">${prefix}${escapeHtml(task.content)}${suffix}${extra}</li>`;
+    const QUALITY_LABELS = { 1: 'Kém', 2: 'Trung bình', 3: 'Khá', 4: 'Tốt', 5: 'Xuất sắc' };
+    const SPIRIT_LABELS = { 1: 'Rất không tốt', 2: 'Không tốt', 3: 'Bình thường', 4: 'Tốt', 5: 'Rất tốt' };
+    const GC_QUALITY_LABELS = {
+        1: '❌ Kém – Không hoàn thành',
+        2: '⚠️ Trung bình – Hoàn thành nhưng còn lỗi',
+        3: '✅ Khá – Hoàn thành đúng yêu cầu',
+        4: '🌟 Tốt – Hoàn thành vượt yêu cầu',
+        5: '🏆 Xuất sắc – Kết quả nổi bật'
+    };
+    const GC_SPIRIT_LABELS = { 1: '😣 Rất không tốt', 2: '😕 Không tốt', 3: '😐 Bình thường', 4: '🙂 Tốt', 5: '😄 Rất tốt' };
+
+    function draftTodayTasks(draft) {
+        return draft.todayTasks.filter(task => String(task.content || '').trim()).map(function (task) {
+            const split = splitIssueFromTitle(task.content);
+            return {
+                issue: String(task.issue_no || '').trim() || split.issue,
+                content: split.content,
+                work_type: task.work_type || 'Coding',
+                status: TASK_STATUSES.includes(task.status) ? task.status : DEFAULT_TASK_STATUS,
+                progress: task.progress,
+                estimate: task.estimate
+            };
+        });
+    }
+
+    // Mirrors formatSlackReport() in slack-report.php, including the em-space indent.
+    function slackPreviewText(draft) {
+        const indent = '  ◦ ';
+        const tasks = draftTodayTasks(draft).map(function (task) {
+            const lines = [
+                `• *Issue:* \`${task.issue || 'Không có'}\``,
+                `${indent}*Công việc:* ${task.content.replace(/\r\n/g, '\n').replace(/\n/g, '\n\u2003\u2003\u2003')}`,
+                `${indent}*Loại:* ${task.work_type}`,
+                `${indent}*Trạng thái:* ${task.status}`,
+                `${indent}*Tiến độ:* ${task.progress === '' ? 'Chưa cập nhật' : task.progress + '%'}`
+            ];
+            if (task.estimate) lines.push(`${indent}*Ngày dự kiến:* ${task.estimate}`);
+            return lines.join('\n');
+        }).join('\n\n');
+        return [
+            '*BÁO CÁO CÔNG VIỆC HẰNG NGÀY*',
+            '',
+            `*Người báo cáo:* \`${$('#dailyReportForm').attr('data-reporter') || ''}\``,
+            `*Ngày:* \`${(draft.reportDate || '').replaceAll('-', '/')}\``,
+            '',
+            '*1. CÔNG VIỆC TRONG NGÀY*',
+            '',
+            tasks || '(Chưa có task)',
+            '',
+            '*2. TỰ ĐÁNH GIÁ KẾT QUẢ & CHẤT LƯỢNG*',
+            '',
+            `*Kết quả hôm nay:* ${draft.dailyResult || 'Không có.'}`,
+            '',
+            `*Đánh giá:* ${QUALITY_LABELS[draft.quality] || 'Khá'}`,
+            '',
+            '*3. CẢM XÚC & TINH THẦN*',
+            '',
+            `*Mức độ:* ${SPIRIT_LABELS[draft.spirit] || 'Bình thường'}`,
+            '',
+            '*4. CHIA SẺ THÊM*',
+            '',
+            draft.note || 'Không có.'
+        ].join('\n');
+    }
+
+    // Renders Slack mrkdwn (*bold* and `code`) so the preview looks like the posted message.
+    function slackMrkdwnToHtml(text) {
+        return escapeHtml(text)
+            .replace(/`([^`\n]+)`/g, '<code class="rounded bg-zinc-100 px-1 py-0.5 text-[12px] text-rose-600">$1</code>')
+            .replace(/\*([^*\n]+)\*/g, '<strong class="text-zinc-900">$1</strong>');
+    }
+
+    function slackPreviewHtml(draft) {
+        return `<div class="rounded-lg border border-zinc-200 bg-white p-3"><div class="whitespace-pre-wrap break-words text-left text-[13px] leading-relaxed text-zinc-700">${slackMrkdwnToHtml(slackPreviewText(draft))}</div></div>`;
+    }
+
+    // Mirrors formatTasks() + the cardV2 payload in send-webhook.php.
+    function googleChatPreviewHtml(draft) {
+        const multiline = value => escapeHtml(value).replace(/\r\n/g, '\n').replace(/\n/g, '<br>&nbsp;&nbsp;');
+        const today = draftTodayTasks(draft).map(function (task) {
+            const issue = task.issue ? `<strong>[${escapeHtml(task.issue)}]</strong> ` : '';
+            const meta = [escapeHtml(task.work_type), escapeHtml(task.status)];
+            meta.push(task.progress === '' ? 'chưa cập nhật' : escapeHtml(task.progress) + '%');
+            if (task.estimate) meta.push('dự kiến ' + task.estimate.split('-').slice(1).reverse().join('/'));
+            return `<li>- ${issue}${multiline(task.content)} <span class="text-zinc-400">· ${meta.join(' · ')}</span></li>`;
         }).join('');
         const tomorrow = draft.tomorrowTasks.filter(task => String(task.content || '').trim()).map(function (task) {
-            return `<li class="rounded-md bg-zinc-50 px-3 py-2"><span class="text-zinc-500">[${task.type === 'continue' ? 'Continue' : 'New'}]</span> ${escapeHtml(task.content)}</li>`;
+            return `<li>- <strong>[${task.type === 'continue' ? 'Continue' : 'New'}]</strong> ${multiline(task.content)}</li>`;
         }).join('');
-        return `<div class="text-left text-sm text-zinc-700">
-            <div class="mb-4 rounded-lg border border-zinc-200 p-3"><div class="font-semibold text-zinc-950">📋 Daily Report · ${escapeHtml(draft.project)}</div><div class="mt-1 text-xs text-zinc-500">${escapeHtml(formatDisplayDate(draft.reportDate))}</div></div>
-            <h3 class="mb-2 font-semibold text-zinc-900">📝 Task hôm nay</h3><ul class="mb-4 space-y-2">${today || '<li class="text-zinc-400">Chưa có task</li>'}</ul>
-            <h3 class="mb-2 font-semibold text-zinc-900">📅 Task ngày mai</h3><ul class="mb-4 space-y-2">${tomorrow || '<li class="text-zinc-400">Chưa có kế hoạch</li>'}</ul>
-            <div class="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 p-3"><span>Chất lượng: <strong>${escapeHtml(draft.quality)}/5</strong></span><span>Tinh thần: <strong>${escapeHtml(draft.spirit)}/5</strong></span></div>
-            ${draft.note ? `<div class="mt-3 rounded-lg border border-zinc-200 p-3"><strong>Ghi chú:</strong> ${escapeHtml(draft.note)}</div>` : ''}
-            ${formPreview}
+        const section = (title, body) => `<p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">${title}</p>${body}`;
+        const reporter = $('#dailyReportForm').attr('data-reporter') || '';
+        return `<div class="rounded-lg border border-zinc-200 bg-white p-3 text-left text-[13px] text-zinc-700">
+            <div class="border-b border-zinc-100 pb-2"><div class="font-semibold text-zinc-950">📋 Daily Report · ${escapeHtml(draft.project)}</div><div class="mt-0.5 text-xs text-zinc-500">${escapeHtml(formatDisplayDate(draft.reportDate))} (GMT+7)${reporter ? ' · ' + escapeHtml(reporter) : ''}</div></div>
+            ${section('📝 Task hôm nay', `<ul class="mt-1 space-y-1">${today || '<li class="text-zinc-400">Chưa có task</li>'}</ul>`)}
+            ${tomorrow ? section('📅 Kế hoạch tiếp theo', `<ul class="mt-1 space-y-1">${tomorrow}</ul>`) : ''}
+            ${draft.dailyResult ? section('🎯 Kết quả hôm nay', `<p class="mt-1 whitespace-pre-wrap">${escapeHtml(draft.dailyResult)}</p>`) : ''}
+            <div class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-2">
+                <div><div class="text-[11px] text-zinc-500">Chất lượng</div><div>${escapeHtml(GC_QUALITY_LABELS[draft.quality] || GC_QUALITY_LABELS[3])}</div></div>
+                <div><div class="text-[11px] text-zinc-500">Tinh thần</div><div>${escapeHtml(GC_SPIRIT_LABELS[draft.spirit] || GC_SPIRIT_LABELS[3])}</div></div>
+            </div>
+            ${draft.note ? section('🗒️ Chia sẻ thêm', `<p class="mt-1 whitespace-pre-wrap">${escapeHtml(draft.note)}</p>`) : ''}
         </div>`;
     }
 
+    function previewHtml() {
+        const draft = collectDraft();
+        const channels = [
+            { key: 'slack', label: 'Slack', on: draft.submitSlack, body: slackPreviewHtml(draft) },
+            { key: 'google_chat', label: 'Google Chat', on: draft.submitGoogleChat, body: googleChatPreviewHtml(draft) }
+        ];
+        // Open on a channel that will actually be sent, otherwise fall back to Slack.
+        const activeKey = (channels.find(channel => channel.on) || channels[0]).key;
+        const tabs = channels.map(function (channel) {
+            const active = channel.key === activeKey;
+            const state = active
+                ? 'border-zinc-900 bg-zinc-900 text-white'
+                : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50';
+            const mark = channel.on ? '' : ' <span class="opacity-60">(không gửi)</span>';
+            return `<button type="button" class="preview-tab rounded-md border px-3 py-1.5 text-xs font-medium ${state}" data-channel="${channel.key}">${channel.label}${mark}</button>`;
+        }).join('');
+        const panels = channels.map(function (channel) {
+            return `<div class="preview-panel${channel.key === activeKey ? '' : ' hidden'}" data-channel="${channel.key}">${channel.body}</div>`;
+        }).join('');
+        const sent = [draft.submitGoogleForm && 'RCNV logtime', draft.submitGoogleChat && 'Google Chat', draft.submitSlack && 'Slack']
+            .filter(Boolean).join(', ') || 'Chưa chọn';
+        return `<div class="text-left">
+            <div class="mb-3 flex gap-2">${tabs}</div>
+            ${panels}
+            <p class="mt-3 text-xs text-zinc-500">Submit kèm: ${escapeHtml(sent)}</p>
+        </div>`;
+    }
+
+    $(document).on('click', '.preview-tab', function () {
+        const key = $(this).data('channel');
+        $('.preview-tab')
+            .removeClass('border-zinc-900 bg-zinc-900 text-white')
+            .addClass('border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50');
+        $(this)
+            .removeClass('border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50')
+            .addClass('border-zinc-900 bg-zinc-900 text-white');
+        $('.preview-panel').addClass('hidden').filter('[data-channel="' + key + '"]').removeClass('hidden');
+    });
+
     $('#previewReport').on('click', function () {
-        Swal.fire({ title: 'Xem trước báo cáo', html: previewHtml(), confirmButtonText: 'Đóng', width: 680 });
+        Swal.fire({ title: 'Xem trước báo cáo', html: previewHtml(), confirmButtonText: 'Đóng', width: 720 });
     });
 
     $(document).on('keydown', function (event) {
@@ -1061,10 +1247,6 @@ Task C | 100%"></textarea>`,
             $('#reporterSetting').trigger('focus');
             return;
         }
-        if (needsTasks && !validateTodayTasks()) {
-            return;
-        }
-
         $('#submitBtn').prop('disabled', true).addClass('opacity-70 cursor-not-allowed');
         $('#loadingIcon').removeClass('hidden');
         $('#submitText').text('Đang gửi...');

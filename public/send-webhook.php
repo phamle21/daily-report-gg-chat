@@ -81,6 +81,30 @@ if ($submitGoogleForm && (empty($googleFormConfig['enabled']) || empty($googleFo
 }
 
 // ===== Parse tasks =====
+const TASK_STATUSES = ['Chưa bắt đầu', 'Đang thực hiện', 'Chờ review', 'Tạm hoãn', 'Hoàn thành'];
+const DEFAULT_TASK_STATUS = 'Đang thực hiện';
+
+// The leading [..] groups of a task title hold its issue/feature reference.
+function splitIssueFromTitle($value)
+{
+    $rest = trim((string)$value);
+    $parts = [];
+    while (preg_match('/^\[([^\]]*)\]\s*/u', $rest, $matches)) {
+        $label = trim($matches[1]);
+        if ($label !== '') {
+            $parts[] = $label;
+        }
+        $rest = mb_substr($rest, mb_strlen($matches[0]));
+    }
+
+    $rest = trim($rest);
+    if ($rest === '') {
+        return ['issue' => '', 'content' => trim((string)$value)];
+    }
+
+    return ['issue' => mb_substr(implode(' ', $parts), 0, 50), 'content' => $rest];
+}
+
 function parseTasks($arr, $withType = false)
 {
     $tasks = [];
@@ -99,17 +123,23 @@ function parseTasks($arr, $withType = false)
                 if ($estimate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $estimate)) {
                     $estimate = '';
                 }
-                if ($progress === 100) {
-                    $estimate = '';
+                // Issue now has its own field; the bracket prefix stays supported for legacy drafts.
+                $split = splitIssueFromTitle($content);
+                $issueNo = mb_substr(trim((string)($t['issue_no'] ?? '')), 0, 50);
+                if ($issueNo !== '') {
+                    $split['issue'] = $issueNo;
+                }
+                $workType = mb_substr(trim((string)($t['work_type'] ?? '')), 0, 50);
+                $status = trim((string)($t['status'] ?? ''));
+                if (!in_array($status, TASK_STATUSES, true)) {
+                    $status = DEFAULT_TASK_STATUS;
                 }
 
-                $issueNo = mb_substr(trim((string)($t['issue_no'] ?? '')), 0, 50);
-                $workType = mb_substr(trim((string)($t['work_type'] ?? '')), 0, 50);
-
                 $task = [
-                    'content' => $content,
-                    'issue_no' => $issueNo,
+                    'content' => $split['content'],
+                    'issue_no' => $split['issue'],
                     'work_type' => $workType !== '' ? $workType : 'Coding',
+                    'status' => $status,
                     'progress' => $progress,
                     'estimate' => $estimate
                 ];
@@ -142,17 +172,6 @@ if (($sendGoogleChat || $sendSlack) && count($tasks_today) == 0) {
     exit;
 }
 
-foreach (($sendGoogleChat || $sendSlack) ? $tasks_today : [] as $task) {
-    if ($task['progress'] !== '' && $task['progress'] < 100 && $task['estimate'] === '') {
-        echo json_encode(['success' => false, 'message' => 'Task hôm nay chưa đạt 100% phải có ngày dự kiến']);
-        exit;
-    }
-    if ($task['estimate'] !== '' && $task['estimate'] < $reportDate) {
-        echo json_encode(['success' => false, 'message' => 'Ngày dự kiến hoàn thành không được trước ngày báo cáo']);
-        exit;
-    }
-}
-
 
 // ===== Map quality and spirit with icons =====
 $qualityMap = [
@@ -165,39 +184,38 @@ $qualityMap = [
 $qualityText = $qualityMap[$quality] ?? '✅ Khá – Hoàn thành đúng yêu cầu';
 
 $spiritMap = [
-    1 => '🪫 Cạn pin',
-    2 => '☕ Cần cà phê',
-    3 => '🌤️ Ổn định',
-    4 => '⚡ Đầy năng lượng',
-    5 => '🚀 Bứt phá'
+    1 => '😣 Rất không tốt',
+    2 => '😕 Không tốt',
+    3 => '😐 Bình thường',
+    4 => '🙂 Tốt',
+    5 => '😄 Rất tốt'
 ];
-$spiritText = $spiritMap[$spirit] ?? '🌤️ Ổn định';
+$spiritText = $spiritMap[$spirit] ?? '😐 Bình thường';
 
 // ===== Format tasks =====
 function formatTasks($tasks, $showType = false)
 {
     $out = [];
-    $typeLabels = [
-        'new' => '[New]',
-        'continue' => '[Continue]',
-    ];
+    $escape = static fn($value) => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     foreach ($tasks as $t) {
-        $prefix = '';
-        if ($showType && !empty($t['type'])) {
-            $prefix = ($typeLabels[$t['type']] ?? '[New]') . ' ';
+        // Task nhiều dòng: dòng sau thụt vào cho thẳng hàng với nội dung bullet.
+        $content = str_replace("\n", "<br>&nbsp;&nbsp;", str_replace("\r\n", "\n", $escape($t['content'])));
+
+        if ($showType) {
+            $type = ($t['type'] ?? 'new') === 'continue' ? 'Continue' : 'New';
+            $out[] = "- <b>[{$type}]</b> {$content}";
+            continue;
         }
 
-        $content = htmlspecialchars($t['content'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $workType = htmlspecialchars($t['work_type'] ?? 'Coding', ENT_QUOTES, 'UTF-8');
-        $issueNo = htmlspecialchars($t['issue_no'] ?? '', ENT_QUOTES, 'UTF-8');
-        $issuePrefix = $issueNo !== '' ? "[{$issueNo}] " : '';
-        $line = "- {$prefix}{$issuePrefix}{$content}";
-        if (!$showType) {
-            $line .= " - {$workType}";
-            if ($t['progress'] !== '') $line .= " <b style='color:yellow'>{$t['progress']}%</b>";
+        $issueNo = $escape($t['issue_no'] ?? '');
+        $issuePrefix = $issueNo !== '' ? "<b>[{$issueNo}]</b> " : '';
+        // Phần bổ nghĩa gom vào một cụm xám để mắt bám vào nội dung task trước.
+        $meta = [$escape($t['work_type'] ?? 'Coding'), $escape($t['status'] ?? DEFAULT_TASK_STATUS)];
+        $meta[] = $t['progress'] === '' ? 'chưa cập nhật' : $t['progress'] . '%';
+        if (!empty($t['estimate'])) {
+            $meta[] = 'dự kiến ' . date('d/m', strtotime($t['estimate']));
         }
-        if ($t['estimate']) $line .= " - Dự kiến: {$t['estimate']}";
-        $out[] = $line;
+        $out[] = "- {$issuePrefix}{$content} <font color=\"#80868b\">· " . implode(' · ', $meta) . "</font>";
     }
     return implode("<br>", $out);
 }
@@ -214,58 +232,38 @@ $avatar = $projectConfig['avatar'] ?: 'https://www.jrr.jp/wp-content/uploads/202
 
 
 // ===== Prepare Google Chat cardV2 payload with icons and order =====
+$cardSubtitle = $date . ' (GMT+7)' . ($reporter !== '' ? ' · ' . $reporter : '');
 $cardV2 = [
     "cardsV2" => [[
         "card" => [
             "header" => [
-                "title"     => "📋 Daily Report - $project",
-                "subtitle"  => $date . ' (GMT+7)',
+                "title"     => "📋 Daily Report · $project",
+                "subtitle"  => $cardSubtitle,
                 "imageUrl"  => $avatar,
                 "imageType" => "CIRCLE",
             ],
             "sections" => [
                 [
-                    "widgets" => [
-                        [
-                            "textParagraph" => [
-                                "text" => "<b>📝 Task hôm nay:</b><br>" . (nl2br($todayStr))
-                            ]
-                        ]
-                    ]
+                    "header" => "📝 Task hôm nay",
+                    "widgets" => [["textParagraph" => ["text" => $todayStr]]]
                 ],
                 ($tomorrowStr ? [
-                    "widgets" => [
-                        [
-                            "textParagraph" => [
-                                "text" => "<b>📅 Task ngày mai:</b><br>" . (nl2br($tomorrowStr))
-                            ]
-                        ]
-                    ]
+                    "header" => "📅 Kế hoạch tiếp theo",
+                    "widgets" => [["textParagraph" => ["text" => $tomorrowStr]]]
+                ] : null),
+                ($dailyResult ? [
+                    "header" => "🎯 Kết quả hôm nay",
+                    "widgets" => [["textParagraph" => ["text" => nl2br(htmlspecialchars($dailyResult, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'))]]]
                 ] : null),
                 [
                     "widgets" => [
-                        [
-                            "decoratedText" => [
-                                "topLabel" => "Chất lượng (Performance)",
-                                "text" => $qualityText
-                            ]
-                        ],
-                        [
-                            "decoratedText" => [
-                                "topLabel" => "Tinh thần",
-                                "text" => $spiritText
-                            ]
-                        ]
+                        ["decoratedText" => ["topLabel" => "Chất lượng", "text" => $qualityText]],
+                        ["decoratedText" => ["topLabel" => "Tinh thần", "text" => $spiritText]]
                     ]
                 ],
                 ($note ? [
-                    "widgets" => [
-                        [
-                            "textParagraph" => [
-                                "text" => "<b>🗒️ Note:</b> " . nl2br(htmlspecialchars($note))
-                            ]
-                        ]
-                    ]
+                    "header" => "🗒️ Chia sẻ thêm",
+                    "widgets" => [["textParagraph" => ["text" => nl2br(htmlspecialchars($note, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'))]]]
                 ] : null)
             ]
         ]
@@ -380,13 +378,14 @@ $statuses['logtime'] = $submitGoogleForm ? ($formOk ? 'ok' : 'failed') : 'skippe
 $anyOk = in_array('ok', $statuses, true);
 
 // ===== Save history to file =====
+// Bản .log giữ nguyên dạng cũ để các record trước đây vẫn đọc được. Bản Google Chat
+// luôn được ghi vì nó là bản duy nhất chứa đủ mọi phần (Slack không gửi kế hoạch tiếp theo).
 $msg = "[Daily Report] {$project} - {$date} (GMT+7)\n";
 $msg .= "\n*📝 Task hôm nay:*\n$todayStr\n";
-if ($tomorrowStr) $msg .= "\n*📅 Task ngày mai:*\n$tomorrowStr\n";
+if ($tomorrowStr) $msg .= "\n*📅 Kế hoạch tiếp theo:*\n$tomorrowStr\n";
+if ($dailyResult) $msg .= "\n*🎯 Kết quả hôm nay:* $dailyResult\n";
 $msg .= "\n*Chất lượng:* $qualityText\n*Tinh thần:* $spiritText\n";
 if ($note) $msg .= "\n*🗒️ Note:* $note\n";
-
-if ($statuses['slack'] === 'ok') $msg = "[Daily Report] {$project} - {$date} (GMT+7) [Slack]\n" . $slackText;
 
 $historyDir = __DIR__ . '/history';
 if (!is_dir($historyDir)) {
@@ -400,6 +399,40 @@ $historyFile = $historyDir . '/' . $reportDate . '.log';
 if ($anyOk && @file_put_contents($historyFile, $msg . "\n---\n", FILE_APPEND | LOCK_EX) === false) {
     echo json_encode(['success' => false, 'message' => 'Không ghi được file lịch sử. Vui lòng kiểm tra quyền ghi thư mục history!']);
     exit;
+}
+
+// Bản JSON là nguồn dữ liệu chính của trang lịch sử: giữ nguyên từng trường thay vì
+// phải parse ngược từ message đã gửi đi.
+if ($anyOk) {
+    $record = [
+        'sent_at' => $date,
+        'report_date' => $reportDate,
+        'project' => $project,
+        'reporter' => $reporter,
+        'channels' => $statuses,
+        'quality' => $quality,
+        'quality_text' => $qualityText,
+        'spirit' => $spirit,
+        'spirit_text' => $spiritText,
+        'daily_result' => $dailyResult,
+        'note' => $note,
+        'tasks_today' => $tasks_today,
+        'tasks_next' => $tasks_tomorrow,
+        'messages' => [
+            'google_chat' => $msg,
+            'slack' => $slackText,
+        ],
+    ];
+    $jsonFile = $historyDir . '/' . $reportDate . '.json';
+    $existing = [];
+    if (is_file($jsonFile)) {
+        $decoded = json_decode((string)file_get_contents($jsonFile), true);
+        if (is_array($decoded)) {
+            $existing = $decoded;
+        }
+    }
+    $existing[] = $record;
+    @file_put_contents($jsonFile, json_encode($existing, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 }
 
 // ===== Response =====

@@ -40,6 +40,7 @@ function e($value)
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Report</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <style>
         /* Critical UI state: parsed before CDN scripts to prevent settings flash. */
         #settingsDrawer[hidden], #settingsBackdrop[hidden] { display: none !important; }
@@ -75,10 +76,8 @@ function e($value)
             from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-in { animation: fadeIn 0.45s ease-out; }
-        .animate-slide-up { animation: fadeIn 0.45s ease-out 0.08s both; }
-        .animate-slide-up-delay { animation: fadeIn 0.45s ease-out 0.16s both; }
-        .animate-slide-up-late { animation: fadeIn 0.45s ease-out 0.24s both; }
+        .animate-fade-in { animation: fadeIn 0.16s ease-out; }
+        .animate-slide-up, .animate-slide-up-delay, .animate-slide-up-late { animation: fadeIn 0.16s ease-out; }
         #settingsDrawer { transform: translateX(100%); }
         #settingsDrawer.drawer-open { transform: translateX(0); }
         #settingsBackdrop[hidden] { display: none; }
@@ -87,22 +86,8 @@ function e($value)
             --dr-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.04);
             --dr-shadow-hover: 0 2px 4px rgba(15,23,42,.04), 0 10px 26px rgba(15,23,42,.07);
         }
-        #dailyReportForm > div {
-            position: relative;
-            overflow: visible;
-            background: #fff !important;
-            border: 1px solid var(--dr-border) !important;
-            border-radius: 14px;
-            box-shadow: var(--dr-shadow);
-            transition: box-shadow .2s ease;
-        }
-        #dailyReportForm > div:not(:last-child) { border-color:color-mix(in srgb,var(--panel-accent,#a8a29e) 30%,#e7e5e4) !important; }
-        #dailyReportForm > div:nth-of-type(1) { --panel-accent:#8b5cf6; }
-        #dailyReportForm > div:nth-of-type(2) { --panel-accent:#38bdf8; }
-        #dailyReportForm > div:nth-of-type(3) { --panel-accent:#818cf8; }
-        #dailyReportForm > div:nth-of-type(4) { --panel-accent:#f59e0b; }
-        #dailyReportForm > div:nth-of-type(5) { --panel-accent:#fb7185; }
-        #dailyReportForm > div:nth-of-type(6) { --panel-accent:#34d399; }
+        /* Panel surface lives on .dr-card; this only keeps the stacking context for dropdowns. */
+        #dailyReportForm > div, #dailyReportForm > fieldset { position: relative; }
         .settings-card {
             position:relative;
             background:#fff !important;
@@ -117,15 +102,8 @@ function e($value)
         .setting-range { --setting-accent:#f59e0b; }
         .project-setting { border-color:#e7e5e4 !important; transition:box-shadow .18s ease; }
         .project-setting:has(.project-setting-body:not(.hidden)) { box-shadow:0 4px 14px rgba(15,23,42,.06); }
-        .project-setting-body:not(.hidden), #googleFormSettingsBody:not(.hidden) { animation: revealPanel .22s ease-out; }
+        .project-setting-body:not(.hidden), #googleFormSettingsBody:not(.hidden) { animation: revealPanel .12s ease-out; }
         @keyframes revealPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes panelEnter { from { opacity:0; transform:translateY(10px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
-        #dailyReportForm > div { animation: panelEnter .38s ease-out backwards; }
-        #dailyReportForm > div:nth-of-type(2) { animation-delay:.04s; }
-        #dailyReportForm > div:nth-of-type(3) { animation-delay:.08s; }
-        #dailyReportForm > div:nth-of-type(4) { animation-delay:.12s; }
-        #dailyReportForm > div:nth-of-type(5) { animation-delay:.16s; }
-        #dailyReportForm > div:nth-of-type(6) { animation-delay:.20s; }
         #dailyReportForm input:not([type="hidden"]), #dailyReportForm select, #dailyReportForm textarea,
         #settingsDrawer input:not([type="checkbox"]), #settingsDrawer select {
             min-height:38px;
@@ -159,7 +137,7 @@ function e($value)
         .dr-select-trigger:focus { outline:none; border-color:#a8a29e; box-shadow:0 0 0 3px rgba(120,113,108,.1); }
         .dr-select-caret { color:#a8a29e; transition:transform .16s ease; }
         .dr-select.is-open .dr-select-caret { transform:rotate(180deg); }
-        .dr-select-menu { position:fixed; z-index:2147483647; inset:auto; margin:0; max-height:240px; overflow:auto; border:1px solid #e7e5e4; border-radius:11px; background:#fff; padding:5px; box-shadow:0 14px 34px rgba(15,23,42,.13); animation:revealPanel .14s ease-out; }
+        .dr-select-menu { position:fixed; z-index:2147483647; inset:auto; margin:0; max-height:240px; overflow:auto; border:1px solid #e7e5e4; border-radius:11px; background:#fff; padding:5px; box-shadow:0 14px 34px rgba(15,23,42,.13); animation:revealPanel .1s ease-out; }
         .dr-select-option { display:flex; width:100%; min-height:34px; align-items:center; justify-content:space-between; border-radius:7px !important; padding:7px 9px; color:#57534e; font-size:13px; text-align:left; }
         .dr-select-option:hover,.dr-select-option.is-active { background:#f5f5f4; color:#1c1917; }
         .dr-select-option.is-selected { color:#0c4a6e; font-weight:600; }
@@ -172,7 +150,7 @@ function e($value)
         .dr-date-trigger:hover { background:#fafaf9; }
         .dr-date-trigger:focus { outline:none; border-color:#a8a29e; box-shadow:0 0 0 3px rgba(120,113,108,.1); }
         .dr-date-placeholder { color:#a8a29e; }
-        .dr-calendar { position:fixed; z-index:2147483647; inset:auto; margin:0; width:292px; border:1px solid #e7e5e4; border-radius:13px; background:#fff; padding:10px; box-shadow:0 16px 38px rgba(15,23,42,.14); animation:revealPanel .14s ease-out; }
+        .dr-calendar { position:fixed; z-index:2147483647; inset:auto; margin:0; width:292px; border:1px solid #e7e5e4; border-radius:13px; background:#fff; padding:10px; box-shadow:0 16px 38px rgba(15,23,42,.14); animation:revealPanel .1s ease-out; }
         .dr-calendar-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
         .dr-calendar-title { color:#292524; font-size:13px; font-weight:650; }
         .dr-calendar-nav { display:flex; height:30px; width:30px; align-items:center; justify-content:center; border-radius:8px !important; color:#78716c; }
@@ -264,6 +242,85 @@ function e($value)
             background: #fff;
             color: #3f3f46;
         }
+
+        /* ===== Section cards: neutral surface + colored accent so sections stay distinct ===== */
+        .dr-card { position:relative; overflow:hidden; border:1px solid #e4e4e7; border-left:4px solid var(--dr-accent,#a1a1aa); border-radius:12px; background:#fff; box-shadow:0 1px 2px rgba(24,24,27,.05),0 8px 22px rgba(24,24,27,.035); }
+        .dr-card-head { display:flex; align-items:center; gap:10px; border-bottom:1px solid #f4f4f5; background:var(--dr-accent-soft,#fafafa); padding:10px 14px; }
+        .dr-card-badge { display:flex; height:26px; width:26px; flex-shrink:0; align-items:center; justify-content:center; border-radius:8px; background:var(--dr-accent,#a1a1aa); color:#fff; font-size:12px; font-weight:700; }
+        .dr-card-title { color:#18181b; font-size:14px; font-weight:650; line-height:1.2; }
+        .dr-card-hint { display:block; margin-top:2px; color:#71717a; font-size:11px; font-weight:400; }
+        .dr-card-body { padding:12px 14px; }
+
+        /* ===== Action buttons: always tinted/filled, never white — inputs are the white ones ===== */
+        .dr-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; border-top:1px dashed #e4e4e7; padding-top:10px; }
+        .dr-action { display:inline-flex; height:34px; align-items:center; justify-content:center; gap:6px; border:1px solid #d4d4d8; border-radius:8px; background:#f4f4f5; padding:0 12px; color:#3f3f46; font-size:13px; font-weight:600; box-shadow:0 1px 1px rgba(24,24,27,.04); }
+        .dr-action:hover { border-color:#a1a1aa; background:#e4e4e7; color:#18181b; }
+        .dr-action:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(24,24,27,.14); }
+        .dr-action-primary { border-color:#18181b; background:#18181b; color:#fff; }
+        .dr-action-primary:hover { border-color:#27272a; background:#27272a; color:#fff; }
+        .dr-action-icon { height:15px; width:15px; }
+
+        /* ===== Task rows: one task per line, columns line up with .dr-colhead ===== */
+        .dr-taskrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border:1px solid #e4e4e7; border-radius:10px; background:#fafafa; padding:8px; }
+        .dr-taskrow:focus-within { border-color:#a1a1aa; background:#fff; box-shadow:0 0 0 3px rgba(24,24,27,.06); }
+        .dr-col-issue { flex:0 0 108px; width:108px; }
+        .dr-col-title { flex:1 1 220px; min-width:0; }
+        .dr-col-type { flex:0 0 128px; width:128px; }
+        .dr-col-status { flex:0 0 144px; width:144px; }
+        .dr-col-progress { flex:0 0 92px; width:92px; }
+        .dr-col-date { flex:0 0 148px; width:148px; }
+        .dr-colhead { display:none; align-items:center; gap:8px; padding:0 9px 6px; }
+        @media (min-width:900px) { .dr-colhead { display:flex; } }
+        @media (max-width:899px) {
+            .dr-col-title { flex-basis:100%; }
+            .dr-col-issue, .dr-col-type, .dr-col-status, .dr-col-progress, .dr-col-date { flex:1 1 120px; width:auto; }
+        }
+        .dr-field-label { color:#71717a; font-size:11px; font-weight:600; letter-spacing:.01em; }
+        .dr-taskrow-drag { display:none; height:38px; width:20px; flex-shrink:0; align-items:center; justify-content:center; color:#d4d4d8; }
+        .dr-taskrow-drag:hover { color:#71717a; }
+        @media (min-width:640px) { .dr-taskrow-drag { display:flex; } }
+        .dr-taskrow-remove { display:flex; height:38px; width:38px; flex-shrink:0; align-items:center; justify-content:center; border:1px solid #e4e4e7; border-radius:8px; background:#fff; color:#a1a1aa; }
+        .dr-taskrow-remove:hover { border-color:#fecdd3; background:#fff1f2; color:#e11d48; }
+        .dr-input { height:38px; min-width:0; padding:0 10px; color:#18181b; font-size:13px; }
+        .dr-input::placeholder { color:#a1a1aa; }
+        .dr-input:focus { outline:none; }
+
+        /* ===== Callout: giữ ô tự đánh giá khỏi bị lướt qua ===== */
+        .dr-callout { margin-top:12px; border:1px solid #fde68a; border-left:4px solid #f59e0b; border-radius:10px; background:#fffbeb; padding:10px 12px; }
+        .dr-callout-label { display:flex; align-items:center; gap:8px; color:#92400e; font-size:13px; font-weight:650; }
+        .dr-callout-tag { border-radius:999px; background:#fef3c7; padding:1px 7px; color:#b45309; font-size:10px; font-weight:600; }
+        .dr-callout-hint { margin-top:2px; color:#a16207; font-size:11px; }
+        .dr-callout-input { margin-top:8px; resize:vertical; }
+        .dr-callout-foot { margin-top:4px; text-align:right; color:#b45309; font-size:10px; }
+
+        /* ===== Toggle switch cho khối "Gửi đến" ===== */
+        .dr-switch-list { display:flex; flex-direction:column; gap:6px; }
+        .dr-switch-row { display:flex; min-height:46px; cursor:pointer; align-items:center; gap:12px; border:1px solid #e4e4e7; border-radius:10px; background:#fafafa; padding:8px 12px; transition:border-color .16s ease, background-color .16s ease; }
+        .dr-switch-row:hover { border-color:#d4d4d8; background:#fff; }
+        .dr-switch-row:has(.dr-switch-input:checked) { border-color:#a7f3d0; background:#f0fdf4; }
+        .dr-switch-text { display:flex; min-width:0; flex:1; flex-direction:column; }
+        .dr-switch-name { color:#18181b; font-size:13px; font-weight:600; }
+        .dr-switch-desc { color:#71717a; font-size:11px; }
+        .dr-switch-input { position:absolute !important; width:1px !important; height:1px !important; min-height:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; border:0 !important; }
+        .dr-switch-track { position:relative; display:block; height:22px; width:40px; flex-shrink:0; border-radius:999px; background:#d4d4d8; transition:background-color .16s ease; }
+        .dr-switch-thumb { position:absolute; top:3px; left:3px; display:block; height:16px; width:16px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgba(24,24,27,.3); transition:transform .16s ease; }
+        .dr-switch-row:has(.dr-switch-input:checked) .dr-switch-track { background:#059669; }
+        .dr-switch-row:has(.dr-switch-input:checked) .dr-switch-thumb { transform:translateX(18px); }
+        .dr-switch-row:has(.dr-switch-input:focus-visible) { border-color:#18181b; box-shadow:0 0 0 3px rgba(24,24,27,.12); }
+
+        /* ===== Combobox "Loại": input tự do + menu gợi ý dùng chung style dr-select ===== */
+        .dr-combo { position:relative; min-width:0; }
+        .dr-combo-toggle { position:absolute; top:0; right:0; display:flex; height:38px; width:28px; align-items:center; justify-content:center; border-radius:0 10px 10px 0 !important; color:#a8a29e; }
+        .dr-combo-toggle:hover { color:#57534e; }
+        .dr-combo input { padding-right:28px !important; }
+        .dr-combo.is-open .dr-combo-toggle { transform:rotate(180deg); }
+
+        /* ===== Task content: textarea tự cao theo nội dung ===== */
+        textarea.dr-input { resize:none; overflow:hidden; min-height:38px; padding-top:9px; padding-bottom:9px; line-height:1.45; }
+
+        .dr-modal-note { margin:0 0 10px; border-radius:8px; background:#f4f4f5; padding:9px 11px; color:#52525b; font-size:12px; line-height:1.55; text-align:left; }
+        .dr-modal-note b { color:#18181b; }
+
         .dr-modal-validation {
             margin: 12px 20px 0;
             border-radius: 8px;
@@ -467,7 +524,12 @@ function e($value)
             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
 
             <!-- Project -->
-            <div class="rounded-xl border border-violet-200 bg-violet-50/70 p-3 shadow-sm">
+            <div class="dr-card" style="--dr-accent:#7c3aed;--dr-accent-soft:#f5f3ff;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">◉</span>
+                    <span class="dr-card-title">Nơi gửi &amp; ngày báo cáo<span class="dr-card-hint">Chọn project nhận report và ngày của báo cáo</span></span>
+                </div>
+                <div class="dr-card-body">
                 <div class="grid gap-3 sm:grid-cols-[52px_minmax(0,1fr)_180px] sm:items-center">
                     <div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
                         <img id="projectLogo" class="<?= !empty($selectedProject['avatar']) ? '' : 'hidden' ?> h-full w-full object-cover" src="<?= e($selectedProject['avatar'] ?? '') ?>" alt="">
@@ -485,70 +547,73 @@ function e($value)
                         <input type="date" name="report_date" id="reportDate" value="<?= e(date('Y-m-d')) ?>" class="mt-1.5 h-9 w-full rounded-md border border-zinc-200 bg-white px-3">
                     </label>
                 </div>
+                </div>
             </div>
 
             <!-- Task hôm nay -->
-            <div class="rounded-xl border border-sky-200 bg-sky-50/60 p-3 shadow-sm">
-                <label class="mb-2.5 block text-sm font-medium text-zinc-900">
-                    <span class="flex items-center gap-2">
-                        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-sky-600 text-xs font-semibold text-white">✓</span>
-                        Task hôm nay
-                        <span class="text-xs font-normal text-zinc-500">(cần hoàn thành)</span>
-                    </span>
-                </label>
-                <p class="mb-2 text-xs text-zinc-500">Nhập issue/feature, chọn loại việc, mô tả và % hoàn thành.</p>
-                <div class="mb-1 hidden gap-2 px-1 sm:flex">
-                    <span class="w-7 flex-shrink-0"></span>
-                    <span class="w-28 flex-shrink-0 text-[11px] font-medium text-zinc-500">Issue/Task no</span>
-                    <span class="w-32 flex-shrink-0 text-[11px] font-medium text-zinc-500">Loại</span>
+            <div class="dr-card" style="--dr-accent:#0284c7;--dr-accent-soft:#f0f9ff;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">1</span>
+                    <span class="dr-card-title">Công việc trong ngày<span class="dr-card-hint">Mỗi task ghi rõ issue, loại việc, trạng thái và tiến độ — để trống Issue nếu không có</span></span>
+                </div>
+                <div class="dr-card-body">
+                <div class="dr-colhead" aria-hidden="true">
+                    <span style="flex:0 0 20px;"></span>
+                    <span class="dr-field-label dr-col-issue">Issue</span>
+                    <span class="dr-field-label dr-col-title">Task</span>
+                    <span class="dr-field-label dr-col-type">Loại</span>
+                    <span class="dr-field-label dr-col-status">Trạng thái</span>
+                    <span class="dr-field-label dr-col-progress">Tiến độ</span>
+                    <span class="dr-field-label dr-col-date">Dự kiến xong</span>
+                    <span style="flex:0 0 38px;"></span>
                 </div>
                 <div id="tasks-today-list" class="space-y-2"></div>
                 <datalist id="workTypeList">
-                    <?php foreach (['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Research', 'Discussion', 'Design', 'Detail Design', 'Meeting', 'Deploy'] as $type): ?>
+                    <?php foreach (['Coding', 'Fix bug', 'Feature', 'Testing', 'Review', 'Analysis', 'Research', 'Discussion', 'Design', 'Detail Design', 'Meeting', 'Deploy', 'Khác'] as $type): ?>
                         <option value="<?= e($type) ?>">
                     <?php endforeach; ?>
                 </datalist>
-                <div class="mt-2 flex flex-wrap gap-2">
-                    <button type="button" id="add-task-today" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
+                <div class="dr-actions">
+                    <button type="button" id="add-task-today" class="dr-action dr-action-primary">
+                        <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
                         Thêm task
                     </button>
-                    <button type="button" id="bulk-task-today" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
+                    <button type="button" id="bulk-task-today" class="dr-action">
+                        <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
                         Nhập nhiều dòng
                     </button>
-                    <button type="button" id="ai-task-prompt" class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.75 11 7l3.25 1.25L11 9.5l-1.25 3.25L8.5 9.5 5.25 8.25 8.5 7l1.25-3.25ZM16.5 11l.75 2 2 .75-2 .75-.75 2-.75-2-2-.75 2-.75.75-2Z"></path></svg>
+                    <button type="button" id="ai-task-prompt" class="dr-action" title="Lấy prompt để nhờ AI tổng hợp task trong ngày, rồi dán kết quả vào Nhập nhiều dòng">
+                        <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.75 11 7l3.25 1.25L11 9.5l-1.25 3.25L8.5 9.5 5.25 8.25 8.5 7l1.25-3.25ZM16.5 11l.75 2 2 .75-2 .75-.75 2-.75-2-2-.75 2-.75.75-2Z"></path></svg>
                         Prompt AI
                     </button>
                 </div>
+                </div>
             </div>
 
-            <!-- Task ngày mai -->
-            <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 shadow-sm">
-                <label class="mb-2.5 block text-sm font-medium text-zinc-900">
-                    <span class="flex items-center gap-2">
-                        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-600 text-xs font-semibold text-white">→</span>
-                        Task ngày mai
-                        <span class="text-xs font-normal text-zinc-500">(lên kế hoạch)</span>
-                    </span>
-                </label>
-                <div id="tasks-tomorrow-list" class="space-y-2"></div>
-                <button type="button" id="add-task-tomorrow" class="mt-2 inline-flex h-8 items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
-                    Thêm task
-                </button>
+            <!-- Kế hoạch tiếp theo -->
+            <div class="dr-card" style="--dr-accent:#4f46e5;--dr-accent-soft:#eef2ff;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">→</span>
+                    <span class="dr-card-title">Kế hoạch tiếp theo<span class="dr-card-hint">Tùy chọn — việc dự kiến cho buổi làm việc kế tiếp, không nhất thiết là ngày mai</span></span>
+                </div>
+                <div class="dr-card-body">
+                    <div id="tasks-tomorrow-list" class="space-y-2"></div>
+                    <div class="dr-actions">
+                        <button type="button" id="add-task-tomorrow" class="dr-action dr-action-primary">
+                            <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
+                            Thêm task
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Self evaluation -->
-            <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3 shadow-sm">
-                <label class="mb-3 block text-sm font-medium text-zinc-900">
-                    <span class="flex items-center gap-2">
-                        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500 text-xs font-semibold text-white">★</span>
-                        Đánh giá bản thân
-                    </span>
-                </label>
-
+            <div class="dr-card" style="--dr-accent:#d97706;--dr-accent-soft:#fffbeb;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">2</span>
+                    <span class="dr-card-title">Tự đánh giá &amp; tinh thần<span class="dr-card-hint">Chọn một mức ở mỗi hàng</span></span>
+                </div>
+                <div class="dr-card-body">
                 <div class="space-y-3">
                     <!-- Quality -->
                     <div>
@@ -581,45 +646,64 @@ function e($value)
                             </button>
                         </div>
                         <input type="hidden" name="quality" id="quality" required>
-                        <label for="dailyResult" class="mb-1 mt-2 block text-xs font-medium text-zinc-500">Tự đánh giá ngắn gọn <span class="font-normal">(tùy chọn)</span></label>
-                        <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" placeholder="Kết quả và chất lượng công việc trong ngày báo cáo..."></textarea>
+                        <div class="dr-callout">
+                            <label for="dailyResult" class="dr-callout-label">Tự đánh giá ngắn gọn<span class="dr-callout-tag">tùy chọn</span></label>
+                            <p class="dr-callout-hint">Một câu về kết quả và chất lượng công việc hôm nay — phần này hiện ngay trong báo cáo gửi đi.</p>
+                            <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="dr-callout-input w-full px-3 py-2 text-sm" placeholder="VD: Đã xử lý xong lỗi chính, đang kiểm tra lại trên Prod."></textarea>
+                            <p class="dr-callout-foot"><span id="dailyResultCount">0</span>/2000 ký tự</p>
+                        </div>
                     </div>
 
                     <!-- Spirit -->
                     <div>
                         <label class="mb-2 block text-sm font-medium text-zinc-700">Tinh thần</label>
                         <div id="spirit-list" class="grid grid-cols-5 gap-2">
-                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50" data-value="1" title="Cạn pin"><span class="text-2xl" aria-hidden="true">🪫</span><small class="mt-1 text-[10px] text-zinc-500">Cạn pin</small></button>
-                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50" data-value="2" title="Cần cà phê"><span class="text-2xl" aria-hidden="true">☕</span><small class="mt-1 text-[10px] text-zinc-500">Cần cà phê</small></button>
-                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50" data-value="3" data-default="true" title="Ổn định"><span class="text-2xl" aria-hidden="true">🌤️</span><small class="mt-1 text-[10px] text-zinc-500">Ổn định</small></button>
-                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50" data-value="4" title="Đầy năng lượng"><span class="text-2xl" aria-hidden="true">⚡</span><small class="mt-1 text-[10px] text-zinc-500">Năng lượng</small></button>
-                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50" data-value="5" title="Bứt phá"><span class="text-2xl" aria-hidden="true">🚀</span><small class="mt-1 text-[10px] text-zinc-500">Bứt phá</small></button>
+                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:border-rose-300 hover:bg-rose-50" data-value="1" title="Rất không tốt"><span class="text-2xl" aria-hidden="true">😣</span><small class="mt-1 text-[10px] text-zinc-500">Rất không tốt</small></button>
+                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:border-orange-300 hover:bg-orange-50" data-value="2" title="Không tốt"><span class="text-2xl" aria-hidden="true">😕</span><small class="mt-1 text-[10px] text-zinc-500">Không tốt</small></button>
+                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:border-sky-300 hover:bg-sky-50" data-value="3" data-default="true" title="Bình thường"><span class="text-2xl" aria-hidden="true">😐</span><small class="mt-1 text-[10px] text-zinc-500">Bình thường</small></button>
+                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:border-emerald-300 hover:bg-emerald-50" data-value="4" title="Tốt"><span class="text-2xl" aria-hidden="true">🙂</span><small class="mt-1 text-[10px] text-zinc-500">Tốt</small></button>
+                            <button type="button" class="react-emoji flex min-h-16 flex-col items-center justify-center rounded-lg border border-zinc-200 bg-white px-1 transition-all hover:border-amber-300 hover:bg-amber-50" data-value="5" title="Rất tốt"><span class="text-2xl" aria-hidden="true">😄</span><small class="mt-1 text-[10px] text-zinc-500">Rất tốt</small></button>
                         </div>
                         <input type="hidden" name="spirit" id="spirit" required>
                     </div>
                 </div>
-            </div>
-
-            <div class="rounded-xl border border-rose-200 bg-rose-50/50 p-3 shadow-sm">
-                <label class="mb-2 block text-sm font-medium text-zinc-900">
-                    <span class="flex items-center gap-2">
-                        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-rose-500 text-xs font-semibold text-white">✎</span>
-                        Chia sẻ thêm nếu có
-                        <span class="text-xs font-normal text-zinc-500">(tùy chọn)</span>
-                    </span>
-                </label>
-                <p class="mb-2 text-xs text-zinc-500">Hãy chia sẻ ngắn gọn điều ảnh hưởng đến cảm xúc hoặc tinh thần và chất lượng công việc của bạn hôm nay.</p>
-                <textarea name="note" class="min-h-20 w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" rows="2" placeholder="Ghi chú thêm..."></textarea>
-            </div>
-
-            <fieldset class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 shadow-sm">
-                <legend class="px-1 text-sm font-medium text-zinc-900">Submit kèm:</legend>
-                <div class="flex flex-wrap gap-4">
-                    <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" id="submitGoogleForm" name="submit_google_form" value="1" checked class="h-4 w-4">RCNV logtime</label>
-                    <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" id="submitGoogleChat" name="submit_google_chat" value="1" checked class="h-4 w-4">Google Chat</label>
-                    <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" id="submitSlack" name="submit_slack" value="1" class="h-4 w-4">Slack</label>
                 </div>
-                <p class="text-xs text-zinc-500">Chọn ít nhất một mục. Có thể gửi nhiều mục trong cùng một lần.</p>
+            </div>
+
+            <div class="dr-card" style="--dr-accent:#e11d48;--dr-accent-soft:#fff1f2;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">3</span>
+                    <span class="dr-card-title">Chia sẻ thêm <span class="font-normal text-zinc-500">(nếu có)</span><span class="dr-card-hint">Hãy chia sẻ ngắn gọn điều ảnh hưởng đến cảm xúc hoặc tinh thần và chất lượng công việc của bạn hôm nay.</span></span>
+                </div>
+                <div class="dr-card-body">
+                <textarea name="note" class="min-h-20 w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" rows="2" placeholder="VD: Hôm nay họp nhiều nên ít thời gian code, tinh thần vẫn ổn."></textarea>
+                </div>
+            </div>
+
+            <fieldset class="dr-card" style="--dr-accent:#059669;--dr-accent-soft:#ecfdf5;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">↗</span>
+                    <span class="dr-card-title">Gửi đến<span class="dr-card-hint">Bật ít nhất một nơi nhận — có thể gửi nhiều nơi trong cùng một lần</span></span>
+                </div>
+                <div class="dr-card-body">
+                <div class="dr-switch-list">
+                    <label class="dr-switch-row" for="submitGoogleForm">
+                        <span class="dr-switch-text"><span class="dr-switch-name">RCNV logtime</span><span class="dr-switch-desc">Ghi log giờ làm qua Google Form</span></span>
+                        <input type="checkbox" id="submitGoogleForm" name="submit_google_form" value="1" checked class="dr-switch-input">
+                        <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                    </label>
+                    <label class="dr-switch-row" for="submitGoogleChat">
+                        <span class="dr-switch-text"><span class="dr-switch-name">Google Chat</span><span class="dr-switch-desc">Gửi card báo cáo vào room của project</span></span>
+                        <input type="checkbox" id="submitGoogleChat" name="submit_google_chat" value="1" checked class="dr-switch-input">
+                        <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                    </label>
+                    <label class="dr-switch-row" for="submitSlack">
+                        <span class="dr-switch-text"><span class="dr-switch-name">Slack</span><span class="dr-switch-desc">Gửi báo cáo dạng text vào channel Slack</span></span>
+                        <input type="checkbox" id="submitSlack" name="submit_slack" value="1" checked class="dr-switch-input">
+                        <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                    </label>
+                </div>
+                </div>
             </fieldset>
 
             <!-- Submit -->
@@ -629,7 +713,7 @@ function e($value)
                     <button type="button" id="clearDraft" class="hidden text-xs font-medium text-zinc-500 hover:text-red-600">Xóa bản nháp</button>
                 </div>
                 <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2">
-                    <button type="button" id="previewReport" class="flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-900 shadow-button hover:bg-zinc-50">Xem trước</button>
+                    <button type="button" id="previewReport" class="dr-action" style="height:40px;">Xem trước</button>
                     <button type="submit" id="submitBtn" class="flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white shadow-button transition-all duration-150 hover:bg-zinc-800 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
                         <span id="submitText">Gửi báo cáo</span>
                         <svg id="loadingIcon" class="ml-2 h-4 w-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
@@ -650,7 +734,7 @@ function e($value)
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
-    <script src="main.js"></script>
+    <script src="main.js?t=<?= e((string)(@filemtime(__DIR__ . '/main.js') ?: time())) ?>"></script>
 </body>
 
 </html>
