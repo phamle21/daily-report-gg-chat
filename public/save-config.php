@@ -24,6 +24,7 @@ $names = $postedProjects['name'] ?? [];
 $webhooks = $postedProjects['webhook'] ?? [];
 $slackWebhooks = $postedProjects['slack_webhook'] ?? [];
 $avatars = $postedProjects['avatar'] ?? [];
+$weproIds = $postedProjects['wepro_project_id'] ?? [];
 
 foreach ($names as $index => $name) {
     $projectName = clean($name);
@@ -35,6 +36,7 @@ foreach ($names as $index => $name) {
         'webhook' => clean($webhooks[$index] ?? ''),
         'slack_webhook' => clean($slackWebhooks[$index] ?? ''),
         'avatar' => clean($avatars[$index] ?? ''),
+        'wepro_project_id' => clean($weproIds[$index] ?? ''),
     ];
 }
 
@@ -47,10 +49,30 @@ if (!isset($projects[$defaultProject])) {
     $defaultProject = array_key_first($projects);
 }
 
+$existingFile = __DIR__ . '/history/app-config.php';
+$existing = file_exists($existingFile) ? (require $existingFile) : [];
+$existingWepro = $existing['wepro'] ?? [];
+
+// Secrets: an empty field means "keep what is stored", so the value never has to be
+// rendered back into the settings HTML.
+function keepSecret($posted, $stored)
+{
+    $posted = clean($posted);
+    return $posted === '' ? (string)($stored ?? '') : $posted;
+}
+
 $config = [
     'reporter' => mb_substr(clean($_POST['reporter'] ?? ''), 0, 100),
     'default_project' => $defaultProject,
     'projects' => $projects,
+    'wepro' => [
+        'enabled' => !empty($_POST['wepro_enabled']),
+        'base_url' => rtrim(clean($_POST['wepro_base_url'] ?? ''), '/'),
+        'basic_user' => clean($_POST['wepro_basic_user'] ?? ''),
+        'basic_pass' => keepSecret($_POST['wepro_basic_pass'] ?? '', $existingWepro['basic_pass'] ?? ''),
+        'remember_cookie' => keepSecret($_POST['wepro_remember_cookie'] ?? '', $existingWepro['remember_cookie'] ?? ''),
+        'include_subtasks' => !empty($_POST['wepro_include_subtasks']),
+    ],
     'google_form' => [
         'enabled' => !empty($_POST['google_form_enabled']),
         'url' => clean($_POST['google_form_url'] ?? ''),

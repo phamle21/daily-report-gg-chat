@@ -18,6 +18,7 @@ if (!$projects) {
     ];
 }
 $googleForm = $config['google_form'] ?? [];
+$wepro = $config['wepro'] ?? [];
 $defaultProject = $config['default_project'] ?? 'JRR';
 $projectNames = array_keys($projects);
 if (!isset($projects[$defaultProject])) {
@@ -90,7 +91,7 @@ function e($value)
         #dailyReportForm > div, #dailyReportForm > fieldset { position: relative; }
         .settings-card {
             position:relative;
-            background:#fff !important;
+            background:color-mix(in srgb,var(--setting-accent,#a8a29e) 8%,#fff) !important;
             border:1px solid var(--dr-border) !important;
             border-radius:12px;
             box-shadow:0 1px 3px rgba(15,23,42,.035);
@@ -100,12 +101,13 @@ function e($value)
         .setting-projects { --setting-accent:#38bdf8; }
         .setting-form { --setting-accent:#34d399; }
         .setting-range { --setting-accent:#f59e0b; }
+        .setting-wepro { --setting-accent:#818cf8; }
         .project-setting { border-color:#e7e5e4 !important; transition:box-shadow .18s ease; }
         .project-setting:has(.project-setting-body:not(.hidden)) { box-shadow:0 4px 14px rgba(15,23,42,.06); }
         .project-setting-body:not(.hidden), #googleFormSettingsBody:not(.hidden) { animation: revealPanel .12s ease-out; }
         @keyframes revealPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
         #dailyReportForm input:not([type="hidden"]), #dailyReportForm select, #dailyReportForm textarea,
-        #settingsDrawer input:not([type="checkbox"]), #settingsDrawer select {
+        #settingsDrawer input:not([type="checkbox"]), #settingsDrawer select, #settingsDrawer textarea {
             min-height:38px;
             border:1px solid #dedbd7 !important;
             border-radius:10px !important;
@@ -122,7 +124,7 @@ function e($value)
             background-repeat:no-repeat !important;
         }
         #dailyReportForm input:not([type="hidden"]):focus, #dailyReportForm select:focus, #dailyReportForm textarea:focus,
-        #settingsDrawer input:not([type="checkbox"]):focus, #settingsDrawer select:focus {
+        #settingsDrawer input:not([type="checkbox"]):focus, #settingsDrawer select:focus, #settingsDrawer textarea:focus {
             border-color:#a8a29e !important;
             box-shadow:0 0 0 3px rgba(120,113,108,.1) !important;
         }
@@ -260,6 +262,29 @@ function e($value)
         .dr-action-primary:hover { border-color:#27272a; background:#27272a; color:#fff; }
         .dr-action-icon { height:15px; width:15px; }
 
+        /* ===== WePRO task picker ===== */
+        .dr-wepro-tools { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+        .dr-wepro-tools.hidden { display:none; }
+        /* Its own rules: .dr-modal-field is a 220px-tall textarea style and broke this input. */
+        .dr-wepro-search { flex:1; min-width:0; height:36px; border:1px solid #e4e4e7; border-radius:8px; background:#fff; padding:0 10px; color:#18181b; font-size:13px; outline:none; box-shadow:0 1px 2px rgba(24,24,27,.06); }
+        .dr-wepro-search:focus { border-color:#18181b; box-shadow:0 0 0 2px rgba(24,24,27,.12); }
+        .dr-wepro-tools .dr-action { flex-shrink:0; height:36px; white-space:nowrap; }
+        .dr-wepro-list { max-height:340px; overflow-y:auto; text-align:left; }
+        .dr-wepro-item.hidden { display:none; }
+        .dr-wepro-group-label { margin:10px 0 6px; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#a1a1aa; text-align:left; }
+        .dr-wepro-group-label:first-child { margin-top:0; }
+        .dr-wepro-children { margin:0 0 4px 18px; border-left:2px solid #e0e7ff; padding-left:8px; }
+        .dr-wepro-item.is-child { background:#fbfbfd; }
+        .dr-wepro-badge { margin-left:6px; border-radius:999px; background:#eef2ff; padding:1px 6px; color:#4f46e5; font-size:9.5px; font-weight:700; }
+        .dr-wepro-item { display:flex; align-items:flex-start; gap:8px; padding:7px 8px; border:1px solid #e4e4e7; border-radius:8px; margin-bottom:6px; cursor:pointer; background:#fff; }
+        .dr-wepro-item:hover { border-color:#a1a1aa; background:#fafafa; }
+        .dr-wepro-check { margin-top:3px; flex-shrink:0; }
+        .dr-wepro-body { display:flex; flex-direction:column; gap:1px; min-width:0; flex:1; }
+        .dr-wepro-code { font-size:10px; font-weight:650; color:#71717a; }
+        .dr-wepro-title { font-size:12.5px; color:#18181b; word-break:break-word; }
+        .dr-wepro-en { font-size:11px; color:#a1a1aa; word-break:break-word; }
+        .dr-wepro-pct { flex-shrink:0; font-size:11px; font-weight:650; color:#0284c7; }
+
         /* ===== Task rows: one task per line, columns line up with .dr-colhead ===== */
         .dr-taskrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border:1px solid #e4e4e7; border-radius:10px; background:#fafafa; padding:8px; }
         .dr-taskrow:focus-within { border-color:#a1a1aa; background:#fff; box-shadow:0 0 0 3px rgba(24,24,27,.06); }
@@ -276,6 +301,11 @@ function e($value)
             .dr-col-issue, .dr-col-type, .dr-col-status, .dr-col-progress, .dr-col-date { flex:1 1 120px; width:auto; }
         }
         .dr-field-label { color:#71717a; font-size:11px; font-weight:600; letter-spacing:.01em; }
+        .dr-taskrow-wepro { flex-basis:100%; display:flex; align-items:center; gap:6px; padding-left:2px; }
+        .dr-taskrow-wepro.hidden { display:none; }
+        .dr-taskrow-wepro .wepro-timelog { font-size:11px; font-weight:650; color:#4f46e5; text-decoration:none; border-bottom:1px dashed #c7d2fe; }
+        .dr-taskrow-wepro .wepro-timelog:hover { color:#3730a3; border-bottom-color:#6366f1; }
+        .dr-taskrow-wepro-code { font-size:10.5px; color:#a1a1aa; }
         .dr-taskrow-drag { display:none; height:38px; width:20px; flex-shrink:0; align-items:center; justify-content:center; color:#d4d4d8; }
         .dr-taskrow-drag:hover { color:#71717a; }
         @media (min-width:640px) { .dr-taskrow-drag { display:flex; } }
@@ -426,6 +456,10 @@ function e($value)
                                     <button type="button" class="remove-project mt-5 h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600">Xóa</button>
                                 </div>
                                 <label class="mb-1 block">
+                                    <span class="mb-1 block text-[11px] font-medium text-zinc-600">WePRO Project ID</span>
+                                    <input name="projects[wepro_project_id][]" class="project-wepro-id h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="VD: 366" value="<?= e($projectConfig['wepro_project_id'] ?? '') ?>">
+                                </label>
+                                <label class="mb-1 block">
                                     <span class="mb-1 block text-[11px] font-medium text-zinc-600">Webhook Google Chat</span>
                                     <input name="projects[webhook][]" class="project-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://chat.googleapis.com/..." value="<?= e($projectConfig['webhook'] ?? '') ?>">
                                 </label>
@@ -440,6 +474,45 @@ function e($value)
                                 </div>
                             </div>
                         <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="settings-card setting-wepro overflow-hidden">
+                    <div class="flex items-center justify-between gap-3 px-3 py-2.5">
+                        <button type="button" id="toggleWeproSettings" class="flex min-w-0 flex-1 items-center justify-between gap-2 text-left" aria-expanded="false">
+                            <span><span class="text-xs font-semibold text-emerald-900">▣ WePRO</span><span class="mt-0.5 block text-[11px] text-emerald-700">Lấy danh sách task từ WePRO</span></span>
+                            <span id="weproSettingsChevron" class="text-emerald-600 transition-transform">⌄</span>
+                        </button>
+                        <label class="flex flex-shrink-0 items-center gap-1.5 text-[11px] font-medium text-emerald-800">
+                            Bật
+                            <input type="checkbox" name="wepro_enabled" value="1" <?= !empty($wepro['enabled']) ? 'checked' : '' ?> class="h-4 w-4 rounded border-emerald-300 text-emerald-700 focus:ring-emerald-600">
+                        </label>
+                    </div>
+                    <div id="weproSettingsBody" class="hidden space-y-2 border-t border-emerald-200 p-3">
+                        <label class="block">
+                            <span class="mb-1 block text-[11px] font-medium text-zinc-600">Base URL</span>
+                            <input name="wepro_base_url" class="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://wepro.rcvn.work" value="<?= e($wepro['base_url'] ?? '') ?>">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-[11px] font-medium text-zinc-600">Basic auth user</span>
+                            <input name="wepro_basic_user" autocomplete="off" class="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="user" value="<?= e($wepro['basic_user'] ?? '') ?>">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-[11px] font-medium text-zinc-600">Basic auth password</span>
+                            <input type="password" name="wepro_basic_pass" autocomplete="new-password" class="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="<?= !empty($wepro['basic_pass']) ? '(đã lưu — để trống nếu giữ nguyên)' : 'password' ?>" value="">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-[11px] font-medium text-zinc-600">Cookie remember</span>
+                            <textarea name="wepro_remember_cookie" rows="2" autocomplete="off" class="w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="<?= !empty($wepro['remember_cookie']) ? '(đã lưu — để trống nếu giữ nguyên)' : 'remember_web_xxx=eyJpdiI6...' ?>"></textarea>
+                        </label>
+                        <label class="flex items-center gap-2 text-[11px] font-medium text-zinc-600">
+                            <input type="checkbox" name="wepro_include_subtasks" value="1" <?= !empty($wepro['include_subtasks']) ? 'checked' : '' ?> class="h-4 w-4 rounded border-zinc-300">
+                            Lấy cả task con
+                        </label>
+                        <p class="dr-modal-note">Project ID đặt riêng cho từng project ở mục <b>Danh sách project</b> phía trên; user/password ở đây dùng chung.</p>
+                        <p class="dr-modal-note">Lấy cookie: mở WePRO trên trình duyệt → F12 → Application → Cookies → copy cả tên và giá trị của <b>remember_web_...</b>. Cookie này sống rất lâu, chỉ phải lấy lại khi bạn logout hoặc đổi mật khẩu.</p>
+                        <button type="button" id="weproTestBtn" class="dr-action">Kiểm tra kết nối</button>
+                        <p id="weproTestResult" class="dr-modal-note hidden"></p>
                     </div>
                 </div>
 
@@ -577,6 +650,9 @@ function e($value)
                     <button type="button" id="add-task-today" class="dr-action dr-action-primary">
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
                         Thêm task
+                    </button>
+                    <button type="button" id="wepro-pick-task" class="dr-action" title="Chọn task từ WePRO và điền vào report">
+                        ▤ Chọn task WePRO
                     </button>
                     <button type="button" id="bulk-task-today" class="dr-action">
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>

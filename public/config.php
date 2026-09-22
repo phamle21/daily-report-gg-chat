@@ -15,6 +15,14 @@ return [
             'avatar' => 'https://www.jumvea.or.jp/logo_thumb_img/logo_thumb_576.jpeg',
         ],
     ],
+    'wepro' => [
+        'enabled' => false,
+        'base_url' => 'https://wepro.rcvn.work',
+        'basic_user' => '',
+        'basic_pass' => '',
+        'remember_cookie' => '',
+        'include_subtasks' => true,
+    ],
     'google_form' => [
         'enabled' => false,
         'url' => '',
