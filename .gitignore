@@ -28,3 +28,6 @@ coverage/
 # Docker/local noise
 *.pid
 *.log
+
+# Local compose override (dev bind mounts)
+docker-compose.override.yml

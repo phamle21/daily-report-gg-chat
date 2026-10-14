@@ -57,7 +57,7 @@ function e($value)
                         border: '#e4e4e7',
                         input: '#e4e4e7',
                         ring: '#18181b',
-                        background: '#fafafa',
+                        background: '#e4e4e7',
                         foreground: '#18181b',
                         muted: '#f4f4f5',
                         'muted-foreground': '#71717a',
@@ -275,6 +275,22 @@ function e($value)
         .dr-wepro-group-label:first-child { margin-top:0; }
         .dr-wepro-children { margin:0 0 4px 18px; border-left:2px solid #e0e7ff; padding-left:8px; }
         .dr-wepro-item.is-child { background:#fbfbfd; }
+        .dr-wlog-total { margin:6px 0 0; text-align:right; font-size:12.5px; font-weight:700; color:#0284c7; }
+        .dr-wlog-badge { display:inline-flex; align-items:center; height:34px; padding:0 10px; border-radius:8px; background:#e0f2fe; color:#0369a1; font-size:12px; font-weight:650; }
+        .dr-wlog-badge.hidden { display:none; }
+        .dr-wlog-date { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+        .dr-wlog-date label { font-size:12px; font-weight:600; color:#52525b; white-space:nowrap; }
+        .dr-wlog-date .dr-wepro-search { max-width:170px; }
+        .dr-wlog-row { display:flex; align-items:flex-start; gap:8px; padding:8px; border:1px solid #e4e4e7; border-radius:8px; margin-bottom:6px; background:#fff; }
+        .dr-wlog-check { margin-top:4px; flex-shrink:0; }
+        .dr-wlog-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+        .dr-wlog-code { font-size:10.5px; font-weight:650; color:#71717a; }
+        .dr-wlog-fields { display:grid; grid-template-columns:150px 1fr 70px; gap:6px; }
+        .dr-wlog-fields select, .dr-wlog-fields input { height:32px; min-width:0; border:1px solid #e4e4e7; border-radius:6px; background:#fff; padding:0 8px; font-size:12.5px; color:#18181b; }
+        .dr-wlog-fields select:focus, .dr-wlog-fields input:focus { outline:none; border-color:#18181b; box-shadow:0 0 0 2px rgba(24,24,27,.12); }
+        .dr-wepro-children.is-folded { display:none; }
+        .dr-wepro-fold { flex-shrink:0; width:22px; height:22px; margin:-2px -2px 0 0; border:0; border-radius:6px; background:transparent; color:#71717a; font-size:14px; line-height:1; cursor:pointer; }
+        .dr-wepro-fold:hover { background:#f4f4f5; color:#18181b; }
         .dr-wepro-badge { margin-left:6px; border-radius:999px; background:#eef2ff; padding:1px 6px; color:#4f46e5; font-size:9.5px; font-weight:700; }
         .dr-wepro-item { display:flex; align-items:flex-start; gap:8px; padding:7px 8px; border:1px solid #e4e4e7; border-radius:8px; margin-bottom:6px; cursor:pointer; background:#fff; }
         .dr-wepro-item:hover { border-color:#a1a1aa; background:#fafafa; }
@@ -654,6 +670,8 @@ function e($value)
                     <button type="button" id="wepro-pick-task" class="dr-action" title="Chọn task từ WePRO và điền vào report">
                         ▤ Chọn task WePRO
                     </button>
+                    <button type="button" id="wepro-log-bulk" class="dr-action" title="Log giờ lên WePRO cho mọi task đã gắn WePRO">⏱ Log giờ WePRO</button>
+                    <span id="weproLoggedTotal" class="dr-wlog-badge hidden"></span>
                     <button type="button" id="bulk-task-today" class="dr-action">
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
                         Nhập nhiều dòng
