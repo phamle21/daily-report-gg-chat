@@ -475,7 +475,7 @@ function trendPoints(array $rows, $key, $width, $height)
                                         <span class="dr-chip dr-chip-project"><?= e($report['project']) ?></span>
                                         <span class="dr-chip"><?= e($report['task_count']) ?> task</span>
                                         <?php foreach ($report['channels'] as $channel): ?>
-                                            <span class="dr-chip dr-chip-channel"><?= e(['logtime' => 'RCNV logtime', 'google_chat' => 'Google Chat', 'slack' => 'Slack'][$channel] ?? $channel) ?></span>
+                                            <span class="dr-chip dr-chip-channel"><?= e(['logtime' => 'RCNV logtime', 'google_chat' => 'Google Chat', 'slack' => 'Slack', 'history' => 'Chỉ lưu'][$channel] ?? $channel) ?></span>
                                         <?php endforeach; ?>
                                         <?php if ($report['source'] === 'log'): ?>
                                             <span class="dr-chip dr-chip-legacy" title="Báo cáo gửi trước khi lưu dữ liệu có cấu trúc">bản cũ</span>

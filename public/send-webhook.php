@@ -56,8 +56,12 @@ $projectConfig = $projects[$project] ?? null;
 $sendGoogleChat = !empty($_POST['submit_google_chat']);
 $sendSlack = !empty($_POST['submit_slack']);
 $submitGoogleForm = !empty($_POST['submit_google_form']);
-if (!$sendGoogleChat && !$sendSlack && !$submitGoogleForm) {
-    echo json_encode(['success' => false, 'message' => 'Chọn ít nhất một mục trong Submit kèm']);
+// "Chỉ lưu lịch sử": nothing goes out, the report is only written to history.
+$historyOnly = !empty($_POST['history_only']);
+if ($historyOnly) {
+    $sendGoogleChat = $sendSlack = $submitGoogleForm = false;
+} elseif (!$sendGoogleChat && !$sendSlack && !$submitGoogleForm) {
+    echo json_encode(['success' => false, 'message' => 'Chọn ít nhất một nơi gửi, hoặc bật "Chỉ lưu lịch sử"']);
     exit;
 }
 $webhooks = [];
@@ -375,6 +379,9 @@ if ($submitGoogleForm && !empty($googleFormConfig['url'])) {
 }
 
 $statuses['logtime'] = $submitGoogleForm ? ($formOk ? 'ok' : 'failed') : 'skipped';
+if ($historyOnly) {
+    $statuses['history'] = 'ok';
+}
 $anyOk = in_array('ok', $statuses, true);
 
 // ===== Save history to file =====
@@ -442,5 +449,5 @@ echo json_encode([
     'success' => $success,
     'partial' => !$success && $anyOk,
     'statuses' => $statuses,
-    'message' => $success ? 'Đã gửi các mục đã chọn' : 'Có mục gửi thất bại',
+    'message' => $historyOnly ? 'Đã lưu vào lịch sử' : ($success ? 'Đã gửi các mục đã chọn' : 'Có mục gửi thất bại'),
 ]);

@@ -23,7 +23,12 @@ $configFile = file_exists(__DIR__ . '/history/app-config.php')
 $config = file_exists($configFile) ? require $configFile : [];
 $wepro = $config['wepro'] ?? [];
 
+$action = (string)($_POST['action'] ?? '');
 if (empty($wepro['enabled'])) {
+    if ($action === 'ping') {
+        echo json_encode(['success' => false, 'disabled' => true]);
+        exit;
+    }
     fail('Vui lòng bật và cấu hình WePRO trong Thiết lập');
 }
 
@@ -33,7 +38,37 @@ if ($baseUrl === '' || $cookie === '') {
     fail('Thiếu Base URL hoặc cookie remember trong Thiết lập WePRO');
 }
 
-$action = (string)($_POST['action'] ?? '');
+// Cheap login probe for the header badge: the dashboard answers 200 when the cookie is alive,
+// a redirect to /login when it expired, 401 when Basic auth is wrong.
+if ($action === 'ping') {
+    $ch = curl_init($baseUrl . '/account/dashboard');
+    $opts = [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_COOKIE => $cookie, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'],
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+    ];
+    if (($wepro['basic_user'] ?? '') !== '') {
+        $opts[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
+        $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
+    }
+    curl_setopt_array($ch, $opts);
+    curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($code === 200) {
+        echo json_encode(['success' => true]);
+    } elseif ($code === 401) {
+        echo json_encode(['success' => false, 'message' => 'Sai user/mật khẩu cổng Basic auth.']);
+    } elseif ($code === 0) {
+        echo json_encode(['success' => false, 'message' => 'Không gọi được WePRO: ' . $err]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Cookie WePRO đã hết hạn (HTTP ' . $code . '). Vào Thiết lập dán cookie mới.']);
+    }
+    exit;
+}
+
 $taskIds = array_values(array_filter(array_map('intval', (array)($_POST['task_ids'] ?? [])), fn ($id) => $id > 0));
 if (!$taskIds) {
     fail('Thiếu task id WePRO.');

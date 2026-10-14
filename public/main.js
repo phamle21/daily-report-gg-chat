@@ -2,44 +2,6 @@ $(document).ready(function () {
     const draftKey = 'daily-report-draft-v1';
     let draftTimer = null;
 
-    function setSettingsOpen(open) {
-        const $drawer = $('#settingsDrawer');
-        if (open) {
-            $drawer.prop('hidden', false);
-            requestAnimationFrame(function () { $drawer.addClass('drawer-open'); });
-        } else {
-            $drawer.removeClass('drawer-open');
-            window.setTimeout(function () {
-                if (!$drawer.hasClass('drawer-open')) $drawer.prop('hidden', true);
-            }, 210);
-        }
-        $drawer.attr('aria-hidden', open ? 'false' : 'true');
-        $('#settingsBackdrop').prop('hidden', !open);
-        $('#openSettings').attr('aria-expanded', open ? 'true' : 'false');
-        $('body').toggleClass('overflow-hidden', open);
-        if (open) $('#closeSettings').trigger('focus');
-    }
-
-    $('#openSettings').on('click', function () { setSettingsOpen(true); });
-    $('#closeSettings, #settingsBackdrop').on('click', function () { setSettingsOpen(false); });
-    $(document).on('keydown', function (event) {
-        if (event.key === 'Escape') setSettingsOpen(false);
-    });
-
-    $('#toggleWeproSettings').on('click', function () {
-        const expanded = $(this).attr('aria-expanded') === 'true';
-        $(this).attr('aria-expanded', expanded ? 'false' : 'true');
-        $('#weproSettingsBody').toggleClass('hidden', expanded);
-        $('#weproSettingsChevron').toggleClass('rotate-180', !expanded);
-    });
-
-    $('#toggleGoogleFormSettings').on('click', function () {
-        const expanded = $(this).attr('aria-expanded') === 'true';
-        $(this).attr('aria-expanded', expanded ? 'false' : 'true');
-        $('#googleFormSettingsBody').toggleClass('hidden', expanded);
-        $('#googleFormSettingsChevron').toggleClass('rotate-180', !expanded);
-    });
-
     function escapeHtml(value) {
         return String(value || '').replace(/[&<>"']/g, function (char) {
             return {
@@ -309,7 +271,7 @@ $(document).ready(function () {
     }
 
     function enhanceDateInput(input) {
-        if (input.dataset.customDate === 'true' || input.closest('.swal2-container')) return;
+        if (input.dataset.customDate === 'true' || (input.closest('.swal2-container') && input.dataset.allowCustom !== 'true')) return;
         input.dataset.customDate = 'true';
         input.dataset.wasRequired = input.required ? 'true' : 'false';
         input.required = false;
@@ -376,7 +338,6 @@ $(document).ready(function () {
     });
     $(document).on('click', function () { closeDatePickers(); });
     $(window).on('resize scroll', function () { closeCustomSelects(); closeDatePickers(); });
-    $('#settingsDrawer').on('scroll', function () { closeCustomSelects(); closeDatePickers(); });
 
     const selectObserver = new MutationObserver(function (mutations) {
         mutations.forEach(function (mutation) {
@@ -395,87 +356,6 @@ $(document).ready(function () {
         });
     });
     selectObserver.observe(document.body, { childList: true, subtree: true });
-
-    function projectSettingHtml(name, webhook, avatar) {
-        return `<div class="project-setting overflow-hidden rounded-lg border border-sky-200 bg-white" data-project="${escapeHtml(name)}">
-            <button type="button" class="toggle-project flex w-full items-center justify-between gap-2 bg-sky-50 px-3 py-2 text-left" aria-expanded="true">
-                <span class="project-summary min-w-0 truncate text-xs font-semibold text-sky-950">📁 ${escapeHtml(name || 'Project mới')}</span>
-                <span class="project-chevron rotate-180 text-sky-500 transition-transform">⌄</span>
-            </button>
-            <div class="project-setting-body p-2.5">
-            <div class="mb-1 grid grid-cols-[1fr_auto] gap-2">
-                <label class="block">
-                    <span class="mb-1 block text-[11px] font-medium text-zinc-600">Tên project</span>
-                    <input name="projects[name][]" class="project-name h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="VD: Internal" value="${escapeHtml(name)}">
-                </label>
-                <button type="button" class="remove-project mt-5 h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600">Xóa</button>
-            </div>
-            <label class="mb-1 block">
-                <span class="mb-1 block text-[11px] font-medium text-zinc-600">WePRO Project ID</span>
-                <input name="projects[wepro_project_id][]" class="project-wepro-id h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="VD: 366" value="">
-            </label>
-            <label class="mb-1 block">
-                <span class="mb-1 block text-[11px] font-medium text-zinc-600">Webhook Google Chat</span>
-                <input name="projects[webhook][]" class="project-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://chat.googleapis.com/..." value="${escapeHtml(webhook)}">
-            </label>
-            <label class="mb-1 block">
-                <span class="mb-1 block text-[11px] font-medium text-zinc-600">Webhook Slack</span>
-                <input name="projects[slack_webhook][]" class="project-slack-webhook h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs" placeholder="https://hooks.slack.com/services/...">
-            </label>
-            <label class="block">
-                <span class="mb-1 block text-[11px] font-medium text-zinc-600">Logo/avatar URL</span>
-                <input name="projects[avatar][]" class="project-avatar h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2" placeholder="https://..." value="${escapeHtml(avatar)}">
-            </label>
-            </div>
-        </div>`;
-    }
-
-    $(document).on('click', '.toggle-project', function () {
-        const $button = $(this);
-        const expanded = $button.attr('aria-expanded') === 'true';
-        $button.attr('aria-expanded', expanded ? 'false' : 'true');
-        $button.siblings('.project-setting-body').toggleClass('hidden', expanded);
-        $button.find('.project-chevron').toggleClass('rotate-180', !expanded);
-    });
-
-    $(document).on('input', '.project-name', function () {
-        const name = $(this).val().trim() || 'Project mới';
-        $(this).closest('.project-setting').find('.project-summary').text('📁 ' + name);
-    });
-
-    function collectProjects() {
-        const projects = [];
-        $('#projectSettingsList .project-setting').each(function () {
-            const name = $(this).find('.project-name').val().trim();
-            if (!name) return;
-            projects.push({
-                name,
-                webhook: $(this).find('.project-webhook').val().trim(),
-                avatar: $(this).find('.project-avatar').val().trim()
-            });
-        });
-        return projects;
-    }
-
-    function syncProjectSelects() {
-        const projects = collectProjects();
-        const currentProject = $('#project').val();
-        const currentDefault = $('#defaultProjectSelect').val();
-        const options = projects.map(function (project) {
-            return `<option value="${escapeHtml(project.name)}">${escapeHtml(project.name)}</option>`;
-        }).join('');
-
-        $('#project, #defaultProjectSelect').html(options);
-        $('#project').val(projects.some(p => p.name === currentProject) ? currentProject : (projects[0]?.name || ''));
-        $('#defaultProjectSelect').val(projects.some(p => p.name === currentDefault) ? currentDefault : $('#project').val());
-
-        const logos = {};
-        projects.forEach(function (project) {
-            logos[project.name] = project.avatar;
-        });
-        $('#project').data('logos', logos);
-        updateProjectLogo();
-    }
 
     function updateProjectLogo() {
         const project = $('#project').val() || '';
@@ -500,25 +380,6 @@ $(document).ready(function () {
         }
     }
 
-    $('#addProject').click(function () {
-        $('#projectSettingsList').append(projectSettingHtml('', '', ''));
-        $('#projectSettingsList .project-setting').last().find('.project-name').focus();
-    });
-
-    $(document).on('click', '.remove-project', async function () {
-        if ($('#projectSettingsList .project-setting').length <= 1) {
-            Swal.fire({ icon: 'warning', title: 'Cần ít nhất 1 project', toast: true, position: 'top-end', showConfirmButton: false, timer: 1800 });
-            return;
-        }
-        const $project = $(this).closest('.project-setting');
-        const projectName = $project.find('.project-name').val().trim() || 'project này';
-        const result = await confirmDelete('Xóa project?', `Project “${projectName}” và cấu hình webhook/logo sẽ bị xóa sau khi bạn lưu thiết lập.`);
-        if (!result.isConfirmed) return;
-        $project.remove();
-        syncProjectSelects();
-    });
-
-    $(document).on('input', '.project-name, .project-avatar', syncProjectSelects);
     // Switching project invalidates the WePRO tasks already pulled into the form.
     let lastProject = $('#project').val() || '';
     $('#project').on('change', async function () {
@@ -557,6 +418,7 @@ $(document).ready(function () {
         }
         lastProject = next;
         updateProjectLogo();
+        scheduleDraftSave();
     });
     updateProjectLogo();
 
@@ -600,6 +462,14 @@ $(document).ready(function () {
         $('#tasks-today-list [name*="[content]"], #tasks-today-list select[name*="[progress]"]').prop('required', needsTasks);
     }
     $('#submitGoogleChat, #submitSlack').on('change', syncSubmitRequirements);
+
+    // "Chỉ lưu lịch sử" and the three send switches exclude each other.
+    $('#historyOnly').on('change', function () {
+        if (this.checked) $('#submitGoogleForm, #submitGoogleChat, #submitSlack').prop('checked', false).trigger('change');
+    });
+    $('#submitGoogleForm, #submitGoogleChat, #submitSlack').on('change', function () {
+        if (this.checked && $('#historyOnly').prop('checked')) $('#historyOnly').prop('checked', false).trigger('change');
+    });
 
     function updateTodayTaskState($item) {
         syncSubmitRequirements();
@@ -794,8 +664,7 @@ Ghi chú bổ sung (nếu có):
     });
     // ===== WEPRO: chọn task từ WePRO =====
     function weproCsrf() {
-        return $('#settingsForm input[name="csrf_token"]').val()
-            || $('input[name="csrf_token"]').first().val();
+        return $('input[name="csrf_token"]').first().val();
     }
 
     // A 504 here means the WePRO fetch outran nginx, not that the endpoint is missing.
@@ -858,24 +727,6 @@ Ghi chú bổ sung (nếu có):
         return ' · cập nhật ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
-    $('#weproTestBtn').on('click', function () {
-        const $btn = $(this);
-        const $out = $('#weproTestResult').removeClass('hidden').text('Đang kiểm tra...');
-        $btn.prop('disabled', true);
-        fetchWeproTasks()
-            .done(function (res) {
-                $out.text(res && res.success
-                    ? 'OK — đọc được ' + res.tasks.length + '/' + res.total + ' task.'
-                    : 'Lỗi: ' + ((res && res.message) || 'không rõ'));
-            })
-            .fail(function (xhr) {
-                $out.text(weproAjaxError(xhr));
-            })
-            .always(function () {
-                $btn.prop('disabled', false);
-            });
-    });
-
     function weproTaskItemHtml(task, index, isChild, hasChildren) {
         const en = task.title_en && task.title_en !== task.title
             ? '<span class="dr-wepro-en">' + escapeHtml(task.title_en) + '</span>'
@@ -889,6 +740,7 @@ Ghi chú bổ sung (nếu có):
             + '<span class="dr-wepro-code">' + escapeHtml(task.short_code) + badge + '</span>'
             + '<span class="dr-wepro-title">' + escapeHtml(task.title) + '</span>'
             + en
+            + (task.url ? '<a class="dr-wepro-link" href="' + escapeHtml(task.url) + '" target="_blank" rel="noopener noreferrer" title="Mở task trên WePRO">' + escapeHtml(task.url) + '</a>' : '')
             + '</span>'
             + '<span class="dr-wepro-pct">' + task.percent + '%</span>'
             + (hasChildren ? '<button type="button" class="dr-wepro-fold" aria-expanded="true" title="Thu gọn task con">▾</button>' : '')
@@ -1012,6 +864,9 @@ Ghi chú bổ sung (nếu có):
         $parent.find('.dr-wepro-fold').attr('aria-expanded', String(!folded)).text(folded ? '▸' : '▾');
     }
 
+    // The link sits inside the <label>: open it without toggling the checkbox.
+    $(document).on('click', '.dr-wepro-link', function (event) { event.stopPropagation(); });
+
     // The button sits inside the <label>, so stop the click from toggling the checkbox.
     $(document).on('click', '.dr-wepro-fold', function (event) {
         event.preventDefault();
@@ -1076,6 +931,74 @@ Ghi chú bổ sung (nếu có):
         });
     });
 
+    // ===== UI: progress strip, optional cards, more-menu, compact columns, status =====
+    function syncProgress() {
+        const hasTask = $('#tasks-today-list [name*="[content]"]').toArray().some(el => String($(el).val() || '').trim());
+        const reviewed = !!$('#quality').val() && !!$('#spirit').val();
+        const sending = $('#submitGoogleForm, #submitGoogleChat, #submitSlack, #historyOnly').is(':checked');
+        $('#formProgress [data-target="card-tasks"]').toggleClass('is-done', hasTask);
+        $('#formProgress [data-target="card-review"]').toggleClass('is-done', reviewed);
+        $('#formProgress [data-target="card-send"]').toggleClass('is-done', sending);
+    }
+    $('#formProgress').on('click', '.dr-progress-step', function () {
+        const target = document.getElementById($(this).data('target'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    $(document).on('input change', '#tasks-today-list, #submitGoogleForm, #submitGoogleChat, #submitSlack, #historyOnly', syncProgress);
+    $('#quality-list, #spirit-list').on('click', 'button', syncProgress);
+
+    // Optional cards start hidden; a chip opens one, the × in its head closes it again.
+    function showOptional(id, show) {
+        $('#' + id).toggleClass('hidden', !show);
+        $('.dr-chip[data-optional="' + id + '"]').toggleClass('hidden', show);
+        $('#optionalBar').toggleClass('hidden', $('.dr-chip').not('.hidden').length === 0);
+    }
+    $('#optionalBar').on('click', '.dr-chip', function () {
+        const id = $(this).data('optional');
+        showOptional(id, true);
+        const $card = $('#' + id);
+        $card[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        $card.find('textarea, input[type="text"]').first().trigger('focus');
+    });
+    $('.dr-optional .dr-card-head').append('<button type="button" class="dr-card-close" title="Ẩn phần này" aria-label="Ẩn phần này">×</button>');
+    $(document).on('click', '.dr-card-close', function () {
+        showOptional($(this).closest('.dr-optional').attr('id'), false);
+    });
+    function syncOptionalCards() {
+        const hasPlan = $('#tasks-tomorrow-list [name*="[content]"]').toArray().some(el => String($(el).val() || '').trim());
+        const hasNote = String($('#dailyReportForm textarea[name="note"]').val() || '').trim() !== '';
+        if (hasPlan) showOptional('card-plan', true);
+        if (hasNote) showOptional('card-share', true);
+    }
+
+    function syncSubmitLabel() {
+        if ($('#submitBtn').prop('disabled')) return;
+        if ($('#historyOnly').prop('checked')) { $('#submitText').text('Lưu vào lịch sử (không gửi)'); return; }
+        const targets = [
+            $('#submitGoogleForm').prop('checked') && 'Logtime',
+            $('#submitGoogleChat').prop('checked') && 'Chat',
+            $('#submitSlack').prop('checked') && 'Slack'
+        ].filter(Boolean);
+        $('#submitText').text(targets.length ? 'Gửi báo cáo → ' + targets.join(' + ') : 'Chọn nơi gửi trước');
+    }
+    $('#submitGoogleForm, #submitGoogleChat, #submitSlack, #historyOnly').on('change', syncSubmitLabel);
+
+    function setWeproStatus(state, text, title) {
+        $('#weproStatus').removeClass('hidden ok err wait off').addClass(state).attr('title', title || text)
+            .find('.dr-status-text').text('WePRO: ' + text);
+    }
+    function checkWeproStatus() {
+        setWeproStatus('wait', 'đang kiểm tra...', 'Đang kiểm tra cookie WePRO');
+        $.ajax({ url: 'wepro-timelog.php', method: 'POST', dataType: 'json', data: { csrf_token: weproCsrf(), action: 'ping' } })
+            .done(function (res) {
+                if (res && res.disabled) { setWeproStatus('off', 'tắt', 'WePRO đang tắt trong Thiết lập. Bấm để bật.'); return; }
+                if (res && res.success) { setWeproStatus('ok', 'đã kết nối', 'Cookie WePRO còn hạn'); return; }
+                setWeproStatus('err', 'lỗi', (res && res.message) || 'WePRO chưa kết nối. Bấm để vào Thiết lập.');
+            })
+            .fail(function () { setWeproStatus('err', 'lỗi', 'Không gọi được máy chủ. Bấm để vào Thiết lập.'); });
+    }
+    $('#weproStatus').on('click', function () { if ($(this).is('.err, .off')) window.location.href = 'settings.php?step=3'; });
+
     // ===== WEPRO: log giờ =====
     const WEPRO_LOGGED_KEY = 'dr-wepro-logged-v2';
     const WEPRO_SWAL_CLASS = {
@@ -1113,6 +1036,102 @@ Ghi chú bổ sung (nếu có):
     }
     $('#project, #reportDate').on('change', weproRenderLoggedTotal);
     weproRenderLoggedTotal();
+
+    // ===== Google Form bù nhiều ngày =====
+    function getDateRange(start, end) {
+        const dates = [];
+        const cursor = new Date(start + 'T00:00:00');
+        const last = new Date(end + 'T00:00:00');
+        while (cursor <= last) {
+            dates.push(cursor.toISOString().slice(0, 10));
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return dates;
+    }
+    $('#googleFormRangeBtn').on('click', async function () {
+        const todayDate = new Date();
+        const today = dateToValue(todayDate);
+        function shift(days) { const d = new Date(todayDate); d.setDate(d.getDate() + days); return dateToValue(d); }
+        const presets = [
+            { label: 'Hôm nay', start: today, end: today },
+            { label: 'Hôm qua', start: shift(-1), end: shift(-1) },
+            { label: '7 ngày qua', start: shift(-6), end: today },
+            { label: 'Tháng này', start: dateToValue(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1)), end: today }
+        ];
+        function gfDates() {
+            const start = $('#gfStart').val(), end = $('#gfEnd').val();
+            if (!start || !end || start > end) return null;
+            const skipWeekend = $('#gfSkipWeekend').prop('checked');
+            return getDateRange(start, end).filter(d => !skipWeekend || ![0, 6].includes(new Date(d + 'T00:00:00').getDay()));
+        }
+        function gfSummary() {
+            const dates = gfDates();
+            const $sum = $('#gfSummary');
+            if (!dates) { $sum.removeClass('ok').text('Chọn khoảng ngày hợp lệ.'); return; }
+            if (!dates.length) { $sum.removeClass('ok').text('Không có ngày nào để nộp.'); return; }
+            $sum.toggleClass('ok', dates.length <= 31).text('Sẽ nộp ' + dates.length + ' ngày' + (dates.length > 31 ? ' — tối đa 31 ngày mỗi lần.' : '.'));
+            $(Swal.getConfirmButton()).text(dates.length ? 'Nộp ' + dates.length + ' ngày' : 'Nộp');
+        }
+        const picked = await Swal.fire({
+            title: 'Logtime RCVN bù',
+            html: '<p class="dr-modal-note">Nộp logtime RCVN (Google Form) cho những ngày đã quên. Không gửi báo cáo.</p>'
+                + '<div class="dr-gf-presets">' + presets.map((p, i) => '<button type="button" class="dr-chip dr-gf-preset" data-i="' + i + '">' + p.label + '</button>').join('') + '</div>'
+                + '<div class="dr-gf-range">'
+                + '<label class="dr-gf-field"><span>Từ ngày</span><input type="date" id="gfStart" data-allow-custom="true" value="' + today + '"></label>'
+                + '<label class="dr-gf-field"><span>Đến ngày</span><input type="date" id="gfEnd" data-allow-custom="true" value="' + today + '"></label>'
+                + '</div>'
+                + '<label class="dr-gf-skip"><input type="checkbox" id="gfSkipWeekend" checked> Bỏ qua thứ 7, chủ nhật</label>'
+                + '<p class="dr-gf-summary" id="gfSummary"></p>',
+            buttonsStyling: false,
+            customClass: WEPRO_SWAL_CLASS,
+            showCancelButton: true,
+            confirmButtonText: 'Nộp',
+            cancelButtonText: 'Hủy',
+            didOpen: function () {
+                $('#gfStart, #gfEnd').each(function () { enhanceDateInput(this); });
+                $('#gfStart, #gfEnd, #gfSkipWeekend').on('change', gfSummary);
+                $('.dr-gf-preset').on('click', function () {
+                    const p = presets[Number($(this).data('i'))];
+                    $('#gfStart').val(p.start); $('#gfEnd').val(p.end);
+                    syncDateControl($('#gfStart')[0]); syncDateControl($('#gfEnd')[0]);
+                    $('.dr-gf-preset').removeClass('is-active'); $(this).addClass('is-active');
+                    gfSummary();
+                });
+                $('.dr-gf-preset').first().addClass('is-active');
+                gfSummary();
+            },
+            willClose: function () { closeDatePickers(); },
+            preConfirm: function () {
+                const dates = gfDates();
+                if (!dates) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.'); return false; }
+                if (!dates.length) { Swal.showValidationMessage('Không có ngày nào để nộp.'); return false; }
+                if (dates.length > 31) { Swal.showValidationMessage('Mỗi lần tối đa 31 ngày.'); return false; }
+                return dates;
+            }
+        });
+        if (!picked.isConfirmed) return;
+        const dates = picked.value;
+        Swal.fire({ title: 'Đang nộp...', allowOutsideClick: false, showConfirmButton: false, customClass: WEPRO_SWAL_CLASS, didOpen: () => Swal.showLoading() });
+        const succeeded = [];
+        const failed = [];
+        for (let i = 0; i < dates.length; i += 1) {
+            Swal.update({ title: 'Đang nộp ' + (i + 1) + '/' + dates.length + '...' });
+            Swal.showLoading();
+            try {
+                const res = await $.ajax({ url: 'submit-google-form.php', method: 'POST', dataType: 'json', data: { date: dates[i], csrf_token: weproCsrf() } });
+                if (res.success) succeeded.push(dates[i]); else failed.push({ date: dates[i], message: res.message || 'Có lỗi xảy ra' });
+            } catch (err) {
+                failed.push({ date: dates[i], message: 'Không kết nối được máy chủ' });
+            }
+        }
+        if (!failed.length) {
+            Swal.fire({ icon: 'success', title: 'Nộp xong', text: 'Đã nộp ' + succeeded.length + '/' + dates.length + ' ngày.', buttonsStyling: false, customClass: WEPRO_SWAL_CLASS });
+            return;
+        }
+        const list = failed.map(f => f.date.split('-').reverse().join('/') + ': ' + f.message).join('\n');
+        Swal.fire({ icon: 'warning', title: 'Xong ' + succeeded.length + '/' + dates.length + ' ngày', html: '<p class="dr-modal-note">Các ngày chưa nộp được:</p><pre class="whitespace-pre-wrap text-left text-xs">' + escapeHtml(list) + '</pre>', buttonsStyling: false, customClass: WEPRO_SWAL_CLASS });
+    });
+
 
     function weproTimelogBaseUrl() {
         const url = String($('#tasks-today-list .dr-taskrow').first().data('weproTimelogUrl') || '');
@@ -1279,7 +1298,7 @@ Ghi chú bổ sung (nếu có):
         const $row = $(this).closest('.dr-taskrow');
         const row = weproLoggableRows().find(r => r.id === Number($row.data('weproId')));
         if (!row) return;
-        weproOpenLogModal([row], 'Log giờ WePRO · ' + row.code);
+        weproOpenLogModal([row], 'Logtime WePRO · ' + row.code);
     });
 
     $('#wepro-log-bulk').click(function () {
@@ -1288,7 +1307,7 @@ Ghi chú bổ sung (nếu có):
             Swal.fire({ icon: 'info', title: 'Chưa có task WePRO', text: 'Thêm task bằng "Chọn task từ WePRO" trước.', buttonsStyling: false, customClass: WEPRO_SWAL_CLASS });
             return;
         }
-        weproOpenLogModal(rows, 'Log giờ WePRO hàng loạt');
+        weproOpenLogModal(rows, 'Logtime WePRO hàng loạt');
     });
 
     $('#bulk-task-today').click(function () {
@@ -1467,12 +1486,12 @@ Task C | Hoàn thành | 100%"></textarea>`,
             5: { bg: '#fffbeb', border: '#facc15', text: '#854d0e' }
         };
         const c = colors[val];
-        $('#quality-list .quality-btn').css({
+        $('#quality-list .quality-btn').removeClass('is-selected').css({
             'background-color': '#fafafa',
             'border-color': '#e4e4e7',
             'color': '#52525b'
         });
-        $(this).css({
+        $(this).addClass('is-selected').css({
             'background-color': c.bg,
             'border-color': c.border,
             'color': c.text
@@ -1491,32 +1510,16 @@ Task C | Hoàn thành | 100%"></textarea>`,
             5: { bg: '#fffbeb', border: '#facc15' }
         };
         const c = colors[val];
-        $('#spirit-list .react-emoji').css({
+        $('#spirit-list .react-emoji').removeClass('is-selected').css({
             'background-color': '#fafafa',
             'border-color': '#e4e4e7'
         });
-        $(this).css({
+        $(this).addClass('is-selected').css({
             'background-color': c.bg,
             'border-color': c.border
         });
         $('#spirit').val(val);
     });
-
-    // ===== Đặt mặc định =====
-    const defaultQuality = $('#quality-list .quality-btn[data-default="true"]');
-    defaultQuality.addClass('selected').css({
-        'background-color': '#fafafa',
-        'border-color': '#18181b',
-        'color': '#18181b'
-    });
-    $('#quality').val(defaultQuality.data('value'));
-
-    const defaultSpirit = $('#spirit-list .react-emoji[data-value="3"]');
-    defaultSpirit.addClass('selected').css({
-        'background-color': '#fafafa',
-        'border-color': '#18181b'
-    });
-    $('#spirit').val(3);
 
     // ===== DRAFT & PREVIEW =====
     function collectDraft() {
@@ -1546,6 +1549,7 @@ Task C | Hoàn thành | 100%"></textarea>`,
             submitGoogleChat: $('#submitGoogleChat').prop('checked'),
             submitSlack: $('#submitSlack').prop('checked'),
             submitGoogleForm: $('#submitGoogleForm').prop('checked'),
+            historyOnly: $('#historyOnly').prop('checked'),
             reportDate: $('#reportDate').val(),
             dailyResult: $('#dailyResult').val(),
             project: $('#project').val(),
@@ -1569,11 +1573,12 @@ Task C | Hoàn thành | 100%"></textarea>`,
         $('#clearDraft').removeClass('hidden');
     }
 
+    // Always persist, even when empty: otherwise switching project (which clears the form)
+    // leaves the previous project's draft behind and it comes back on reload.
     function saveDraft() {
         const draft = collectDraft();
-        if (!hasDraftContent(draft)) return;
         localStorage.setItem(draftKey, JSON.stringify(draft));
-        updateDraftStatus(draft.savedAt);
+        if (hasDraftContent(draft)) updateDraftStatus(draft.savedAt);
     }
 
     function scheduleDraftSave() {
@@ -1583,9 +1588,10 @@ Task C | Hoàn thành | 100%"></textarea>`,
 
     function restoreDraft(draft) {
         if (!draft || !Array.isArray(draft.todayTasks)) return;
-        $('#submitGoogleChat').prop('checked', draft.submitGoogleChat ?? (draft.destination ? draft.destination === 'google_chat' : true));
+        $('#submitGoogleChat').prop('checked', draft.submitGoogleChat ?? (draft.destination ? draft.destination === 'google_chat' : false));
         $('#submitSlack').prop('checked', draft.submitSlack ?? (draft.destination === 'slack'));
         $('#submitGoogleForm').prop('checked', draft.submitGoogleForm ?? true);
+        $('#historyOnly').prop('checked', !!draft.historyOnly);
         $('#reportDate').val(draft.reportDate || $('#reportDate')[0].defaultValue).trigger('change');
         syncDateControl($('#reportDate')[0]);
         $('#dailyResult').val(draft.dailyResult || '');
@@ -1603,18 +1609,25 @@ Task C | Hoàn thành | 100%"></textarea>`,
         if (!(draft.tomorrowTasks || []).length) {
             $('#tasks-tomorrow-list').append(taskTomorrowHtml(taskTomorrowIdx++));
         }
-        if ($('#project option[value="' + CSS.escape(draft.project || '') + '"]').length) $('#project').val(draft.project);
+        if ($('#project option[value="' + CSS.escape(draft.project || '') + '"]').length) {
+            // .val() does not refresh the custom select label, and the change guard must
+            // learn the restored project or the next switch compares against the default.
+            $('#project').val(draft.project);
+            rebuildCustomSelect($('#project')[0]);
+            lastProject = draft.project;
+        }
         $('#dailyReportForm textarea[name="note"]').val(draft.note || '');
-        $('#quality-list .quality-btn[data-value="' + (draft.quality || 3) + '"]').trigger('click');
-        $('#spirit-list .react-emoji[data-value="' + (draft.spirit || 3) + '"]').trigger('click');
+        if (draft.quality) $('#quality-list .quality-btn[data-value="' + draft.quality + '"]').trigger('click');
+        if (draft.spirit) $('#spirit-list .react-emoji[data-value="' + draft.spirit + '"]').trigger('click');
         updateProjectLogo();
         autoGrowAll();
-        updateDraftStatus(draft.savedAt || new Date().toISOString());
+        if (hasDraftContent(draft)) updateDraftStatus(draft.savedAt || new Date().toISOString());
+        syncOptionalCards();
     }
 
     try {
         const storedDraft = JSON.parse(localStorage.getItem(draftKey) || 'null');
-        if (storedDraft && hasDraftContent(storedDraft)) restoreDraft(storedDraft);
+        if (storedDraft) restoreDraft(storedDraft);
     } catch (error) {
         localStorage.removeItem(draftKey);
     }
@@ -1623,6 +1636,19 @@ Task C | Hoàn thành | 100%"></textarea>`,
 
     $('#dailyReportForm').on('input change', 'input, select, textarea', scheduleDraftSave);
     $('#quality-list, #spirit-list').on('click', 'button', scheduleDraftSave);
+
+    $('#clear-tasks-today').on('click', async function () {
+        const count = $('#tasks-today-list .dr-taskrow').filter(function () {
+            return String($(this).find('[name*="[content]"]').val() || '').trim() !== '';
+        }).length;
+        if (!count) return;
+        const result = await confirmDelete('Xóa hết ' + count + ' task hôm nay?', 'Danh sách task sẽ trống để bạn nhập lại. Phần đánh giá và kế hoạch giữ nguyên.');
+        if (!result.isConfirmed) return;
+        $('#tasks-today-list').empty().append(taskTodayHtml(taskTodayIdx++));
+        syncProgress();
+        scheduleDraftSave();
+        $('#tasks-today-list textarea[name*="[content]"]').first().trigger('focus');
+    });
 
     $('#clearDraft').on('click', async function () {
         const result = await confirmDelete('Xóa bản nháp?', 'Bản nháp đang lưu trên trình duyệt sẽ không thể khôi phục.');
@@ -1755,8 +1781,8 @@ Task C | Hoàn thành | 100%"></textarea>`,
         const panels = channels.map(function (channel) {
             return `<div class="preview-panel${channel.key === activeKey ? '' : ' hidden'}" data-channel="${channel.key}">${channel.body}</div>`;
         }).join('');
-        const sent = [draft.submitGoogleForm && 'RCNV logtime', draft.submitGoogleChat && 'Google Chat', draft.submitSlack && 'Slack']
-            .filter(Boolean).join(', ') || 'Chưa chọn';
+        const sent = draft.historyOnly ? 'Chỉ lưu lịch sử' : ([draft.submitGoogleForm && 'RCNV logtime', draft.submitGoogleChat && 'Google Chat', draft.submitSlack && 'Slack']
+            .filter(Boolean).join(', ') || 'Chưa chọn');
         return `<div class="text-left">
             <div class="mb-3 flex gap-2">${tabs}</div>
             ${panels}
@@ -1800,12 +1826,13 @@ Task C | Hoàn thành | 100%"></textarea>`,
             return;
         }
 
-        if (!$('#submitGoogleForm, #submitGoogleChat, #submitSlack').is(':checked')) {
-            Swal.fire({ icon: 'warning', text: 'Chọn ít nhất một mục trong Submit kèm.' });
+        if (!$('#submitGoogleForm, #submitGoogleChat, #submitSlack, #historyOnly').is(':checked')) {
+            Swal.fire({ icon: 'warning', text: 'Chọn ít nhất một nơi gửi, hoặc bật "Chỉ lưu lịch sử".' });
             return;
         }
         if (!$('#spirit').val()) {
             Swal.fire({ icon: 'warning', title: 'Vui lòng chọn mức tinh thần!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            document.getElementById('card-review').scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
         if (!$('#quality').val()) {
@@ -1813,14 +1840,13 @@ Task C | Hoàn thành | 100%"></textarea>`,
             return;
         }
         if ($('#submitSlack').prop('checked') && !($('#dailyReportForm').attr('data-reporter') || '').trim()) {
-            Swal.fire({ icon: 'warning', text: 'Vui lòng nhập và lưu người báo cáo trong Thiết lập.' });
-            setSettingsOpen(true);
-            $('#reporterSetting').trigger('focus');
+            Swal.fire({ icon: 'warning', text: 'Vui lòng nhập và lưu tên người báo cáo trong Thiết lập.', confirmButtonText: 'Mở Thiết lập' })
+                .then(function () { window.location.href = 'settings.php'; });
             return;
         }
         $('#submitBtn').prop('disabled', true).addClass('opacity-70 cursor-not-allowed');
         $('#loadingIcon').removeClass('hidden');
-        $('#submitText').text('Đang gửi...');
+        $('#submitText').text($('#historyOnly').prop('checked') ? 'Đang lưu...' : 'Đang gửi...');
 
         $.ajax({
             url: 'send-webhook.php',
@@ -1830,8 +1856,8 @@ Task C | Hoàn thành | 100%"></textarea>`,
             success: function (res) {
                 $('#submitBtn').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed');
                 $('#loadingIcon').addClass('hidden');
-                $('#submitText').text('Gửi báo cáo');
-                const labels = {logtime: 'RCNV logtime', google_chat: 'Google Chat', slack: 'Slack'};
+                syncSubmitLabel();
+                const labels = {logtime: 'RCNV logtime', google_chat: 'Google Chat', slack: 'Slack', history: 'Lịch sử'};
                 const resultText = res.statuses ? Object.entries(res.statuses).filter(([, status]) => status !== 'skipped').map(([channel, status]) => `${labels[channel]}: ${status === 'ok' ? 'Thành công' : 'Thất bại'}`).join(' · ') : res.message;
                 if (res.partial) {
                     // Retry only failed channels to avoid duplicate reports or logtime.
@@ -1873,7 +1899,7 @@ Task C | Hoàn thành | 100%"></textarea>`,
             error: function (xhr, status, error) {
                 $('#submitBtn').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed');
                 $('#loadingIcon').addClass('hidden');
-                $('#submitText').text('Gửi báo cáo');
+                syncSubmitLabel();
                 Swal.fire({
                     icon: 'error',
                     title: 'Lỗi!',
@@ -1889,122 +1915,7 @@ Task C | Hoàn thành | 100%"></textarea>`,
         });
     });
 
-    // ===== SUBMIT GOOGLE FORM THEO KHOẢNG NGÀY =====
-    function getDateRange(startValue, endValue) {
-        const dates = [];
-        const current = new Date(`${startValue}T00:00:00`);
-        const end = new Date(`${endValue}T00:00:00`);
-
-        while (current <= end) {
-            dates.push([
-                current.getFullYear(),
-                String(current.getMonth() + 1).padStart(2, '0'),
-                String(current.getDate()).padStart(2, '0')
-            ].join('-'));
-            current.setDate(current.getDate() + 1);
-        }
-
-        return dates;
-    }
-
-    $('#googleFormRangeForm').submit(async function (e) {
-        e.preventDefault();
-
-        const startDate = $('#googleFormStartDate').val();
-        const endDate = $('#googleFormEndDate').val();
-        if (!startDate || !endDate || startDate > endDate) {
-            Swal.fire({ icon: 'warning', title: 'Khoảng ngày không hợp lệ', text: 'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-            return;
-        }
-
-        const dates = getDateRange(startDate, endDate);
-        if (dates.length > 31) {
-            Swal.fire({ icon: 'warning', title: 'Khoảng ngày quá dài', text: 'Mỗi lần chỉ submit tối đa 31 ngày.', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-            return;
-        }
-
-        const confirmation = await Swal.fire({
-            icon: 'question',
-            title: `Submit Google Form cho ${dates.length} ngày?`,
-            text: 'Thao tác này chỉ gửi form chấm công, không gửi report Google Chat.',
-            showCancelButton: true,
-            confirmButtonText: 'Submit',
-            cancelButtonText: 'Hủy'
-        });
-        if (!confirmation.isConfirmed) {
-            return;
-        }
-
-        const $button = $('#submitGoogleFormRangeBtn');
-        const $text = $('#submitGoogleFormRangeText');
-        $button.prop('disabled', true).addClass('opacity-70 cursor-not-allowed');
-        const succeeded = [];
-        const failed = [];
-
-        for (let index = 0; index < dates.length; index += 1) {
-            const date = dates[index];
-            $text.text(`Đang submit ${index + 1}/${dates.length}...`);
-            try {
-                const response = await $.ajax({
-                    url: 'submit-google-form.php',
-                    method: 'POST',
-                    data: { date, csrf_token: $('#googleFormRangeForm input[name="csrf_token"]').val() },
-                    dataType: 'json'
-                });
-                if (response.success) {
-                    succeeded.push(date);
-                } else {
-                    failed.push({ date, message: response.message || 'Có lỗi xảy ra' });
-                }
-            } catch (error) {
-                failed.push({ date, message: 'Không kết nối được máy chủ' });
-            }
-        }
-
-        $button.prop('disabled', false).removeClass('opacity-70 cursor-not-allowed');
-        $text.text('Submit các ngày');
-
-        if (failed.length === 0) {
-            Swal.fire({ icon: 'success', title: 'Submit hoàn tất', text: `Đã submit thành công ${succeeded.length}/${dates.length} ngày.` });
-            return;
-        }
-
-        const failedDates = failed.map(item => `${item.date.split('-').reverse().join('/')}: ${item.message}`).join('\n');
-        Swal.fire({
-            icon: 'warning',
-            title: `Hoàn tất ${succeeded.length}/${dates.length} ngày`,
-            html: `<p class="mb-2 text-sm">Các ngày chưa submit được:</p><pre class="whitespace-pre-wrap text-left text-xs">${escapeHtml(failedDates)}</pre>`
-        });
-    });
-
-    // ===== SAVE SETTINGS =====
-    $('#settingsForm').submit(function (e) {
-        e.preventDefault();
-        syncProjectSelects();
-
-        $('#saveSettingsBtn').prop('disabled', true).addClass('opacity-70 cursor-not-allowed').text('Đang lưu...');
-
-        $.ajax({
-            url: 'save-config.php',
-            method: 'POST',
-            data: $(this).serialize(),
-            dataType: 'json',
-            success: function (res) {
-                $('#saveSettingsBtn').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed').text('Lưu thiết lập');
-                if (res.success) {
-                    syncProjectSelects();
-                    $('#dailyReportForm').attr('data-reporter', $('#reporterSetting').val().trim());
-                    setSettingsOpen(false);
-                    Swal.fire({ icon: 'success', title: 'Đã lưu thiết lập', toast: true, position: 'top-end', showConfirmButton: false, timer: 1800 });
-                } else {
-                    Swal.fire({ icon: 'error', title: 'Không lưu được', text: res.message || 'Có lỗi xảy ra', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-                }
-            },
-            error: function () {
-                $('#saveSettingsBtn').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed').text('Lưu thiết lập');
-                Swal.fire({ icon: 'error', title: 'Không lưu được', text: 'Vui lòng kiểm tra quyền ghi file config', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-            }
-        });
-    });
-
+    syncProgress();
+    syncSubmitLabel();
+    checkWeproStatus();
 });
