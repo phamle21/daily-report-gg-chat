@@ -46,7 +46,7 @@ $query = http_build_query([
     'tab' => 'tasks',
     'draw' => 1,
     'start' => 0,
-    'length' => 100,
+    'length' => 500,
     'projectId' => $projectId,
     'status' => 'not finished',
     'trashedData' => 'false',
@@ -133,18 +133,18 @@ function taskTitles($heading)
     return $titles;
 }
 
-// WePRO never states who a task's parent is; the sub-task view of a parent does, via
-// ?parentId= links. Only parents that declare subtasks are worth a request.
-function fetchChildIds($baseUrl, $parentId, $cookie, $basicUser, $basicPass)
+// The gantt feed of the project lists every task with its `parent`, in one request:
+// that is the only place WePRO states the parent → child relation.
+function fetchGantt($baseUrl, $projectId, $cookie, $basicUser, $basicPass)
 {
-    $ch = curl_init($baseUrl . '/account/tasks/' . $parentId . '?view=sub_task');
+    $ch = curl_init($baseUrl . '/account/projects/' . rawurlencode($projectId) . '?tab=gantt&json=true');
     $opts = [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest'],
+        CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'],
         CURLOPT_COOKIE => $cookie,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_TIMEOUT => 30,
+        CURLOPT_TIMEOUT => 60,
         CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
     ];
     if ($basicUser !== '') {
@@ -152,17 +152,22 @@ function fetchChildIds($baseUrl, $parentId, $cookie, $basicUser, $basicPass)
         $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
     }
     curl_setopt_array($ch, $opts);
-    $html = curl_exec($ch);
+    $body = curl_exec($ch);
     $ok = curl_getinfo($ch, CURLINFO_HTTP_CODE) === 200;
     curl_close($ch);
-
-    if (!$ok || $html === false) {
-        return [];
+    $json = $ok && $body !== false ? json_decode($body, true) : null;
+    unset($body);
+    $out = [];
+    foreach ((array)($json['data'] ?? []) as $row) {
+        if (!is_array($row) || empty($row['id'])) {
+            continue;
+        }
+        $out[(int)$row['id']] = [
+            'parent' => (int)($row['parent'] ?? 0),
+            'status' => (string)($row['status'] ?? ''),
+        ];
     }
-    // Slashes come back escaped inside the embedded JSON, hence the optional backslash.
-    preg_match_all('#tasks\\\\?/(\d+)\\?parentId=' . $parentId . '#', $html, $m);
-    unset($html);
-    return array_values(array_unique(array_map('intval', $m[1])));
+    return $out;
 }
 
 $tasks = [];
@@ -185,6 +190,7 @@ foreach ($data['data'] as $row) {
         'due_date' => trim((string)($row['due_on'] ?? '')),
         'subtask_count' => (int)($row['subtasks_count'] ?? 0),
         'parent_id' => 0,
+        'status' => '',
         'url' => $baseUrl . '/account/tasks/' . (int)($row['id'] ?? 0),
         'timelog_url' => $baseUrl . '/account/timelogs/create-timelog-simple/' . (int)($row['id'] ?? 0),
     ];
@@ -194,16 +200,17 @@ $byId = [];
 foreach ($tasks as $i => $task) {
     $byId[$task['id']] = $i;
 }
+$gantt = fetchGantt($baseUrl, $projectId, $cookie, (string)($wepro['basic_user'] ?? ''), (string)($wepro['basic_pass'] ?? ''));
 $mapped = 0;
-foreach ($tasks as $task) {
-    if ($task['subtask_count'] < 1) {
+foreach ($tasks as $i => $task) {
+    $g = $gantt[$task['id']] ?? null;
+    if (!$g) {
         continue;
     }
-    foreach (fetchChildIds($baseUrl, $task['id'], $cookie, (string)($wepro['basic_user'] ?? ''), (string)($wepro['basic_pass'] ?? '')) as $childId) {
-        if (isset($byId[$childId]) && $tasks[$byId[$childId]]['parent_id'] === 0) {
-            $tasks[$byId[$childId]]['parent_id'] = $task['id'];
-            $mapped++;
-        }
+    $tasks[$i]['status'] = $g['status'];
+    if ($g['parent'] > 0 && isset($byId[$g['parent']])) {
+        $tasks[$i]['parent_id'] = $g['parent'];
+        $mapped++;
     }
 }
 

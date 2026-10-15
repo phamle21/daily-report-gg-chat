@@ -743,6 +743,7 @@ Ghi chú bổ sung (nếu có):
             + (task.url ? '<a class="dr-wepro-link" href="' + escapeHtml(task.url) + '" target="_blank" rel="noopener noreferrer" title="Mở task trên WePRO">' + escapeHtml(task.url) + '</a>' : '')
             + '</span>'
             + '<span class="dr-wepro-pct">' + task.percent + '%</span>'
+            + '<button type="button" class="dr-wepro-addchild" data-id="' + task.id + '" title="Tạo task con cho task này">＋ con</button>'
             + (hasChildren ? '<button type="button" class="dr-wepro-fold" aria-expanded="true" title="Thu gọn task con">▾</button>' : '')
             + '</label>';
     }
@@ -810,7 +811,7 @@ Ghi chú bổ sung (nếu có):
         Swal.getConfirmButton().disabled = true;
         $('#weproPickTools').addClass('hidden');
         $('#weproPickList').empty();
-        $('#weproPickNote').text('Đang tải task từ WePRO, lần đầu mất khoảng 30 giây...');
+        $('#weproPickNote').text('Đang tải task từ WePRO, khoảng 10 giây...');
         fetchWeproTasks()
             .done(function (res) {
                 if (!res || !res.success) {
@@ -1036,6 +1037,240 @@ Ghi chú bổ sung (nếu có):
     }
     $('#project, #reportDate').on('change', weproRenderLoggedTotal);
     weproRenderLoggedTotal();
+
+    // ===== WEPRO: tạo task =====
+    function weproCreateAjax(data) {
+        return $.ajax({ url: 'wepro-task-create.php', method: 'POST', dataType: 'json', data: $.extend({ csrf_token: weproCsrf(), project: $('#project').val() || '' }, data) });
+    }
+
+    // Parents to pick from: the picker's cached list, fetched once if the cache is cold.
+    function weproParentList() {
+        const project = $('#project').val() || '';
+        const cached = weproCacheGet(project);
+        if (cached) return $.Deferred().resolve(cached.tasks).promise();
+        return fetchWeproTasks().then(function (res) {
+            if (res && res.success) { weproCacheSet(project, res.tasks); return res.tasks; }
+            return [];
+        }, function () { return []; });
+    }
+
+    // Flat, tree-ordered list for the searchable parent picker.
+    function weproParentEntries(tasks) {
+        const byCode = (a, b) => String(a.short_code).localeCompare(String(b.short_code));
+        const children = new Map();
+        tasks.filter(t => t.parent_id).sort(byCode).forEach(t => {
+            if (!children.has(t.parent_id)) children.set(t.parent_id, []);
+            children.get(t.parent_id).push(t);
+        });
+        const out = [];
+        tasks.filter(t => !t.parent_id).sort(byCode).forEach(function (p) {
+            out.push({ id: p.id, code: p.short_code, title: p.title, child: false });
+            (children.get(p.id) || []).forEach(c => out.push({ id: c.id, code: c.short_code, title: c.title, child: true }));
+        });
+        return out;
+    }
+
+    function weproRepeaterRowHtml(item) {
+        item = item || {};
+        return '<div class="dr-wc-row">'
+            + '<input type="text" class="dr-wc-row-vn" placeholder="Tên task (VN) *" value="' + escapeHtml(item.heading || '') + '">'
+            + '<input type="text" class="dr-wc-row-en" placeholder="Tên EN" value="' + escapeHtml(item.en_name || '') + '">'
+            + '<input type="number" class="dr-wc-row-pt" min="0" step="1" value="' + (item.storypoint || 1) + '" title="Story point">'
+            + '<button type="button" class="dr-wc-row-del" title="Xóa dòng">×</button>'
+            + '</div>';
+    }
+
+    // opts.parentId preselects the parent (from the picker's "＋ task con").
+    function weproOpenCreate(opts) {
+        opts = opts || {};
+        const today = dateToValue(new Date());
+        let form = null;
+        let entries = [];
+        function collectItems() {
+            if ($('#wcMode').val() === 'bulk') {
+                return $('#wcRows .dr-wc-row').map(function () {
+                    const heading = $(this).find('.dr-wc-row-vn').val().trim();
+                    return heading ? { heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1 } : null;
+                }).get();
+            }
+            const heading = $('#wcHeading').val().trim();
+            return heading ? [{ heading, en_name: $('#wcEn').val().trim(), storypoint: Number($('#wcPoint').val()) || 1, estimate_hours: Number($('#wcEstimate').val()) || 0 }] : [];
+        }
+        function updateCount() {
+            const n = collectItems().length;
+            $(Swal.getConfirmButton()).text(n > 1 ? 'Tạo ' + n + ' task' : 'Tạo task');
+            $('#wcBulkCount').text(n ? n + ' task sẽ được tạo' : 'Điền tên VN cho từng dòng, dòng trống bị bỏ qua');
+        }
+        function setParent(id) {
+            const e = entries.find(x => x.id === id);
+            $('#wcParent').val(e ? e.id : 0);
+            $('#wcParentPicked').text(e ? e.code + '  ' + e.title : 'Không có task cha (task gốc)').toggleClass('is-set', !!e);
+            $('#wcParentList').prop('hidden', true);
+        }
+        function renderParentList(needle) {
+            needle = String(needle || '').toLowerCase();
+            const rows = entries.filter(e => !needle || (e.code + ' ' + e.title).toLowerCase().indexOf(needle) !== -1).slice(0, 60);
+            let html = '<button type="button" class="dr-wc-popt" data-id="0">— Không có task cha (task gốc) —</button>';
+            html += rows.map(e => '<button type="button" class="dr-wc-popt' + (e.child ? ' is-child' : '') + '" data-id="' + e.id + '"><b>' + escapeHtml(e.code) + '</b> ' + escapeHtml(e.title) + '</button>').join('');
+            if (!rows.length) html += '<div class="dr-wc-pempty">Không có task khớp</div>';
+            $('#wcParentList').html(html).prop('hidden', false);
+        }
+        Swal.fire({
+            title: 'Tạo task WePRO',
+            html: '<p class="dr-modal-note" id="wcNote">Đang lấy form từ WePRO...</p>'
+                + '<div id="wcBody" class="dr-wc hidden">'
+                + '<div class="dr-wc-tabs"><button type="button" class="dr-chip is-active" data-mode="single">Một task</button><button type="button" class="dr-chip" data-mode="bulk">Nhiều task</button><input type="hidden" id="wcMode" value="single"></div>'
+                + '<div class="dr-wc-pane" data-pane="single">'
+                + '<label class="dr-wc-field"><span>Tên task (VN) *</span><input type="text" id="wcHeading" placeholder="VD: [Backoffice] Sửa màn hình đơn hàng"></label>'
+                + '<label class="dr-wc-field"><span>Tên EN (tùy chọn)</span><input type="text" id="wcEn" placeholder="VD: [Backoffice] Fix order screen"></label>'
+                + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Story point</span><input type="number" id="wcPoint" min="0" step="1" value="1"></label>'
+                + '<label class="dr-wc-field"><span>Ước lượng (giờ)</span><input type="number" id="wcEstimate" min="0" step="1" value="0"></label></div>'
+                + '</div>'
+                + '<div class="dr-wc-pane hidden" data-pane="bulk">'
+                + '<div class="dr-wc-rows-head"><span>Tên task (VN) *</span><span>Tên EN</span><span>Point</span><span></span></div>'
+                + '<div id="wcRows">' + weproRepeaterRowHtml() + weproRepeaterRowHtml() + '</div>'
+                + '<div class="dr-wc-rows-foot"><button type="button" id="wcAddRow" class="dr-chip">＋ Thêm dòng</button><span class="dr-wc-hint" id="wcBulkCount">Điền tên VN cho từng dòng, dòng trống bị bỏ qua</span></div>'
+                + '</div>'
+                + '<div class="dr-wc-field dr-wc-parent"><span>Task cha</span>'
+                + '<button type="button" id="wcParentPicked" class="dr-wc-pbtn">Không có task cha (task gốc)</button>'
+                + '<input type="hidden" id="wcParent" value="0">'
+                + '<div id="wcParentBox" class="dr-wc-pbox" hidden><input type="text" id="wcParentSearch" placeholder="Gõ mã hoặc tên task để tìm..." autocomplete="off"><div id="wcParentList" class="dr-wc-plist" hidden></div></div>'
+                + '</div>'
+                + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Trạng thái</span><select id="wcStatus"></select></label>'
+                + '<label class="dr-wc-field"><span>Sprint</span><select id="wcSprint"><option value="">— Không —</option></select></label></div>'
+                + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Bắt đầu</span><input type="date" id="wcStart" data-allow-custom="true" value="' + today + '"></label>'
+                + '<label class="dr-wc-field"><span>Hạn</span><input type="date" id="wcDue" data-allow-custom="true" value="' + today + '"></label></div>'
+                + '<label class="dr-wc-check"><input type="checkbox" id="wcAddToReport" checked> Thêm task vừa tạo vào report hôm nay</label>'
+                + '</div>',
+            buttonsStyling: false,
+            customClass: WEPRO_SWAL_CLASS,
+            showCancelButton: true,
+            confirmButtonText: 'Tạo task',
+            cancelButtonText: 'Hủy',
+            didOpen: function () {
+                Swal.getConfirmButton().disabled = true;
+                $('#wcStart, #wcDue').each(function () { enhanceDateInput(this); });
+                $('.dr-wc-tabs .dr-chip').on('click', function () {
+                    const mode = $(this).data('mode');
+                    $('.dr-wc-tabs .dr-chip').removeClass('is-active'); $(this).addClass('is-active');
+                    $('#wcMode').val(mode);
+                    $('.dr-wc-pane').addClass('hidden').filter('[data-pane="' + mode + '"]').removeClass('hidden');
+                    updateCount();
+                });
+                $(document).on('input.wc', '#wcHeading, #wcRows input', updateCount);
+                $('#wcAddRow').on('click', function () {
+                    $('#wcRows').append(weproRepeaterRowHtml());
+                    $('#wcRows .dr-wc-row-vn').last().trigger('focus');
+                });
+                $(document).on('click.wc', '.dr-wc-row-del', function () {
+                    if ($('#wcRows .dr-wc-row').length > 1) $(this).closest('.dr-wc-row').remove(); else $(this).closest('.dr-wc-row').find('input[type=text]').val('');
+                    updateCount();
+                });
+                // Enter in a repeater row adds the next one, like a spreadsheet.
+                $(document).on('keydown.wc', '#wcRows .dr-wc-row-vn, #wcRows .dr-wc-row-en', function (e) {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const $row = $(this).closest('.dr-wc-row');
+                    if ($row.is(':last-child')) $('#wcAddRow').trigger('click'); else $row.next().find('.dr-wc-row-vn').trigger('focus');
+                });
+                $('#wcParentPicked').on('click', function () {
+                    const open = $('#wcParentBox').prop('hidden');
+                    $('#wcParentBox').prop('hidden', !open);
+                    if (open) { renderParentList(''); $('#wcParentSearch').val('').trigger('focus'); }
+                });
+                $(document).on('input.wc', '#wcParentSearch', function () { renderParentList($(this).val()); });
+                $(document).on('click.wc', '.dr-wc-popt', function () { setParent(Number($(this).data('id'))); $('#wcParentBox').prop('hidden', true); });
+                $.when(weproCreateAjax({ action: 'form' }), weproParentList()).done(function (formRes, parents) {
+                    const res = Array.isArray(formRes) ? formRes[0] : formRes;
+                    if (!res || !res.success) { $('#wcNote').text((res && res.message) || 'Không lấy được form WePRO.'); return; }
+                    form = res;
+                    entries = weproParentEntries(parents || []);
+                    $('#wcStatus').html(res.statuses.map(o => '<option value="' + escapeHtml(o.value) + '"' + (/Coding/i.test(o.label) ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>').join(''));
+                    $('#wcSprint').append(res.sprints.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join(''));
+                    if (opts.parentId) setParent(Number(opts.parentId));
+                    $('#wcNote').text('Tạo trong project ' + (res.project_label || $('#project').val()) + '. Người làm: bạn.');
+                    $('#wcBody').removeClass('hidden');
+                    $('#wcHeading').trigger('focus');
+                    Swal.getConfirmButton().disabled = false;
+                }).fail(function (xhr) { $('#wcNote').text(weproAjaxError(xhr)); });
+            },
+            willClose: function () { closeDatePickers(); $(document).off('.wc'); },
+            preConfirm: function () {
+                const items = collectItems();
+                if (!items.length) { Swal.showValidationMessage('Nhập ít nhất một tên task.'); return false; }
+                if (!$('#wcStart').val() || !$('#wcDue').val() || $('#wcStart').val() > $('#wcDue').val()) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng hạn.'); return false; }
+                return {
+                    items,
+                    parent_id: Number($('#wcParent').val()) || 0,
+                    status: $('#wcStatus').val(),
+                    sprint_id: $('#wcSprint').val(),
+                    start_date: $('#wcStart').val(),
+                    due_date: $('#wcDue').val(),
+                    user_id: form ? form.me : 0,
+                    addToReport: $('#wcAddToReport').prop('checked')
+                };
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            weproSubmitCreate(result.value);
+        });
+    }
+
+    $('#wepro-create-task').on('click', function () { weproOpenCreate(); });
+
+    // "＋ task con" inside the picker: close it and open the create form with that parent.
+    $(document).on('click', '.dr-wepro-addchild', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const parentId = Number($(this).data('id'));
+        Swal.close();
+        setTimeout(function () { weproOpenCreate({ parentId }); }, 150);
+    });
+
+    function weproSubmitCreate(v) {
+        Swal.fire({ title: 'Đang tạo ' + v.items.length + ' task trên WePRO...', allowOutsideClick: false, showConfirmButton: false, customClass: WEPRO_SWAL_CLASS, didOpen: () => Swal.showLoading() });
+        const data = { action: 'store', parent_id: v.parent_id, priority: 'medium', status: v.status, sprint_id: v.sprint_id, start_date: v.start_date, due_date: v.due_date, user_id: v.user_id };
+        v.items.forEach(function (it, i) {
+            data['tasks[' + i + '][heading]'] = it.heading;
+            data['tasks[' + i + '][en_name]'] = it.en_name || '';
+            data['tasks[' + i + '][storypoint]'] = it.storypoint || 1;
+            data['tasks[' + i + '][estimate_hours]'] = it.estimate_hours || 0;
+        });
+        weproCreateAjax(data)
+            .done(function (res) {
+                const results = (res && res.results) || [];
+                const ok = results.filter(r => r.success);
+                const bad = results.filter(r => !r.success);
+                if (ok.length) {
+                    // Cache the new tasks so the picker and the parent list know them without a refetch.
+                    const project = $('#project').val() || '';
+                    const cached = weproCacheGet(project);
+                    if (cached) {
+                        ok.forEach(function (r) {
+                            cached.tasks.push({ id: r.id, short_code: 'mới', full_code: '', title: r.heading, title_en: '', percent: 0, start_date: v.start_date, due_date: v.due_date, subtask_count: 0, parent_id: v.parent_id, status: 'new', url: r.url, timelog_url: r.timelog_url });
+                        });
+                        weproCacheSet(project, cached.tasks);
+                    }
+                    if (v.addToReport) {
+                        ok.forEach(function (r) {
+                            addTodayTask({ wepro_id: r.id, wepro_timelog_url: r.timelog_url, wepro_code: '', issue_no: '', content: r.heading, progress: '', estimate: v.due_date, status: 'Chưa bắt đầu' });
+                        });
+                        scheduleDraftSave();
+                    }
+                }
+                const list = ok.map(r => '<li>✓ <a href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener noreferrer">#' + r.id + '</a> ' + escapeHtml(r.heading) + '</li>').join('')
+                    + bad.map(r => '<li class="is-bad">✕ ' + escapeHtml(r.heading || '(trống)') + ' — ' + escapeHtml(r.message) + '</li>').join('');
+                Swal.fire({
+                    icon: bad.length ? (ok.length ? 'warning' : 'error') : 'success',
+                    title: ok.length ? 'Đã tạo ' + ok.length + '/' + results.length + ' task' : 'Không tạo được task',
+                    html: '<ul class="dr-wc-results">' + list + '</ul>' + (!results.length && res && res.message ? '<p class="dr-modal-note">' + escapeHtml(res.message) + '</p>' : ''),
+                    buttonsStyling: false, customClass: WEPRO_SWAL_CLASS
+                });
+            })
+            .fail(function (xhr) {
+                Swal.fire({ icon: 'error', title: 'Không tạo được task', text: weproAjaxError(xhr), buttonsStyling: false, customClass: WEPRO_SWAL_CLASS });
+            });
+    }
 
     // ===== Google Form bù nhiều ngày =====
     function getDateRange(start, end) {

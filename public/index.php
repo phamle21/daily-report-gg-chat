@@ -140,6 +140,7 @@ function e($value)
                     <button type="button" id="wepro-pick-task" class="dr-action" title="Chọn task từ WePRO và điền vào report">
                         ▤ Chọn task WePRO
                     </button>
+                    <button type="button" id="wepro-create-task" class="dr-action" title="Tạo task mới trên WePRO, một hoặc nhiều task một lần">＋ Tạo task WePRO</button>
                     <button type="button" id="wepro-log-bulk" class="dr-action" title="Logtime lên WePRO cho mọi task đã gắn WePRO">⏱ Logtime WePRO</button>
                     <span id="weproLoggedTotal" class="dr-wlog-badge hidden"></span>
                     <button type="button" id="bulk-task-today" class="dr-action">

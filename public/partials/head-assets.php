@@ -270,6 +270,49 @@
             .dr-sendbar-actions { grid-template-columns:1fr; gap:8px; }
             .dr-sendbar-actions #submitBtn { order:-1; height:44px; }
         }
+        /* ===== WePRO create task ===== */
+        .dr-wc { text-align:left; display:flex; flex-direction:column; gap:10px; }
+        .dr-wc.hidden { display:none; }
+        .dr-wc-tabs { display:flex; gap:6px; }
+        .dr-wc-tabs .dr-chip.is-active { border-style:solid; border-color:#18181b; background:#18181b; color:#fff; }
+        .dr-wc-pane { display:flex; flex-direction:column; gap:10px; }
+        .dr-wc-pane.hidden { display:none; }
+        .dr-wc-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .dr-wc-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+        .dr-wc-field > span { font-size:12px; font-weight:600; color:#52525b; }
+        .dr-wc-field input, .dr-wc-field select, .dr-wc-field textarea { width:100%; min-width:0; border:1px solid #d4d4d8; border-radius:8px; background:#fff; padding:8px 10px; font-size:13px; color:#18181b; }
+        .dr-wc-field input:focus, .dr-wc-field select:focus, .dr-wc-field textarea:focus { outline:none; border-color:#18181b; box-shadow:0 0 0 2px rgba(24,24,27,.12); }
+        .dr-wc-field textarea { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px; line-height:1.5; resize:vertical; }
+        .dr-wc-field .dr-date-trigger { min-height:38px; }
+        .dr-wc-hint { margin:0; font-size:12px; color:#71717a; }
+        .dr-wc-check { display:flex; align-items:center; gap:8px; font-size:13px; color:#3f3f46; cursor:pointer; }
+        .dr-wc-check input { height:16px; width:16px; accent-color:#18181b; }
+        .dr-wc-results { margin:0; padding:0; list-style:none; text-align:left; font-size:13px; line-height:1.6; }
+        .dr-wc-results a { color:#4f46e5; font-weight:600; }
+        .dr-wc-results .is-bad { color:#be123c; }
+        .dr-wc-rows-head { display:grid; grid-template-columns:1fr 1fr 64px 28px; gap:6px; font-size:11.5px; font-weight:600; color:#52525b; padding:0 2px; }
+        .dr-wc-row { display:grid; grid-template-columns:1fr 1fr 64px 28px; gap:6px; margin-top:6px; align-items:center; }
+        .dr-wc-row input { width:100%; min-width:0; border:1px solid #d4d4d8; border-radius:8px; background:#fff; padding:7px 9px; font-size:13px; color:#18181b; }
+        .dr-wc-row input:focus { outline:none; border-color:#18181b; box-shadow:0 0 0 2px rgba(24,24,27,.12); }
+        .dr-wc-row-del { height:30px; width:28px; border:1px solid #e4e4e7; border-radius:7px; background:#fff; color:#71717a; font-size:15px; line-height:1; cursor:pointer; }
+        .dr-wc-row-del:hover { border-color:#fecdd3; background:#fff1f2; color:#e11d48; }
+        .dr-wc-rows-foot { display:flex; align-items:center; gap:10px; margin-top:8px; }
+        .dr-wc-pbtn { width:100%; text-align:left; border:1px solid #d4d4d8; border-radius:8px; background:#fff; padding:8px 10px; font-size:13px; color:#71717a; cursor:pointer; }
+        .dr-wc-pbtn.is-set { color:#18181b; font-weight:600; }
+        .dr-wc-pbtn:hover { border-color:#a1a1aa; }
+        .dr-wc-pbox { margin-top:6px; border:1px solid #d4d4d8; border-radius:10px; background:#fff; padding:8px; box-shadow:0 10px 28px rgba(24,24,27,.12); }
+        .dr-wc-pbox input { width:100%; border:1px solid #d4d4d8; border-radius:8px; padding:7px 9px; font-size:13px; }
+        .dr-wc-pbox input:focus { outline:none; border-color:#18181b; box-shadow:0 0 0 2px rgba(24,24,27,.12); }
+        .dr-wc-plist { max-height:220px; overflow-y:auto; margin-top:6px; }
+        .dr-wc-popt { display:block; width:100%; text-align:left; border:0; border-radius:7px; background:transparent; padding:7px 9px; font-size:12.5px; color:#18181b; cursor:pointer; }
+        .dr-wc-popt b { color:#71717a; font-weight:650; margin-right:4px; }
+        .dr-wc-popt.is-child { padding-left:24px; }
+        .dr-wc-popt:hover { background:#f4f4f5; }
+        .dr-wc-pempty { padding:8px; font-size:12.5px; color:#a1a1aa; }
+        .dr-wepro-addchild { flex-shrink:0; height:22px; border:1px solid #c7d2fe; border-radius:6px; background:#eef2ff; padding:0 7px; color:#4338ca; font-size:10.5px; font-weight:700; cursor:pointer; }
+        .dr-wepro-addchild:hover { background:#e0e7ff; }
+        /* Popup overlay: darker and blurred so the page behind reads as inactive */
+        .swal2-container.swal2-backdrop-show, .swal2-container.swal2-noanimation { background:rgba(24,24,27,.62) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
         /* ===== WePRO task picker ===== */
         .dr-wepro-tools { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
         .dr-wepro-tools.hidden { display:none; }
