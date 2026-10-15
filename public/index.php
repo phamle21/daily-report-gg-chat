@@ -253,24 +253,47 @@ function e($value)
             </div>
 
         </form>
-        <!-- Send bar: fixed at the bottom, kept outside the form so its entry animation (transform) cannot trap position:fixed -->
-            <div class="dr-sendbar" id="card-send">
+        <!-- Send panel: outside the form so its entry animation (transform) cannot trap position:fixed -->
+            <div class="dr-sendbar dr-card" id="card-send" style="--dr-accent:#059669;--dr-accent-soft:#ecfdf5;">
+                <div class="dr-card-head">
+                    <span class="dr-card-badge" aria-hidden="true">↗</span>
+                    <span class="dr-card-title">Gửi đến<span class="dr-card-hint">Bật nơi nhận rồi bấm Gửi. Có thể gửi nhiều nơi một lần.</span></span>
+                </div>
                 <div class="dr-sendbar-inner">
-                    <div class="dr-sendbar-top">
-                        <span class="dr-sendbar-label">Gửi đến:</span>
-                        <label class="dr-dest" for="submitGoogleForm" title="Ghi log giờ làm qua Google Form"><input type="checkbox" form="dailyReportForm" id="submitGoogleForm" name="submit_google_form" value="1" checked><span>RCNV logtime</span></label>
-                        <label class="dr-dest" for="submitGoogleChat" title="Gửi card báo cáo vào room của project"><input type="checkbox" form="dailyReportForm" id="submitGoogleChat" name="submit_google_chat" value="1"><span>Google Chat</span></label>
-                        <label class="dr-dest" for="submitSlack" title="Gửi báo cáo dạng text vào channel Slack"><input type="checkbox" form="dailyReportForm" id="submitSlack" name="submit_slack" value="1" checked><span>Slack</span></label>
-                        <label class="dr-dest dr-dest-muted" for="historyOnly" title="Không gửi đi đâu, chỉ lưu vào Lịch sử. Bật cái này thì ba mục kia tắt."><input type="checkbox" form="dailyReportForm" id="historyOnly" name="history_only" value="1"><span>Chỉ lưu lịch sử</span></label>
-                        <span class="dr-sendbar-draft"><span id="draftStatus">Bản nháp sẽ tự động lưu</span> <button type="button" id="clearDraft" class="hidden font-medium hover:text-red-600">· Xóa bản nháp</button></span>
+                    <div class="dr-dest-list">
+                        <label class="dr-dest" for="submitGoogleForm">
+                            <span class="dr-dest-icon" style="--c:#d97706;background:#fffbeb;">🗓</span>
+                            <span class="dr-dest-text"><span class="dr-dest-name">RCNV logtime</span><span class="dr-dest-desc">Nộp giờ làm qua Google Form</span></span>
+                            <input type="checkbox" form="dailyReportForm" id="submitGoogleForm" name="submit_google_form" value="1" checked class="dr-switch-input">
+                            <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                        </label>
+                        <label class="dr-dest" for="submitGoogleChat">
+                            <span class="dr-dest-icon" style="--c:#0284c7;background:#f0f9ff;">💬</span>
+                            <span class="dr-dest-text"><span class="dr-dest-name">Google Chat</span><span class="dr-dest-desc">Card báo cáo vào room project</span></span>
+                            <input type="checkbox" form="dailyReportForm" id="submitGoogleChat" name="submit_google_chat" value="1" class="dr-switch-input">
+                            <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                        </label>
+                        <label class="dr-dest" for="submitSlack">
+                            <span class="dr-dest-icon" style="--c:#7c3aed;background:#f5f3ff;">#</span>
+                            <span class="dr-dest-text"><span class="dr-dest-name">Slack</span><span class="dr-dest-desc">Text vào channel Slack</span></span>
+                            <input type="checkbox" form="dailyReportForm" id="submitSlack" name="submit_slack" value="1" checked class="dr-switch-input">
+                            <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                        </label>
+                        <label class="dr-dest dr-dest-muted" for="historyOnly">
+                            <span class="dr-dest-icon" style="--c:#4f46e5;background:#eef2ff;">🗂</span>
+                            <span class="dr-dest-text"><span class="dr-dest-name">Chỉ lưu lịch sử</span><span class="dr-dest-desc">Không gửi, chỉ lưu để tra cứu</span></span>
+                            <input type="checkbox" form="dailyReportForm" id="historyOnly" name="history_only" value="1" class="dr-switch-input">
+                            <span class="dr-switch-track" aria-hidden="true"><span class="dr-switch-thumb"></span></span>
+                        </label>
                     </div>
                     <div class="dr-sendbar-actions">
-                        <button type="button" id="previewReport" class="dr-action" style="height:40px;">Xem trước</button>
-                        <button type="submit" form="dailyReportForm" id="submitBtn" title="Phím tắt: Ctrl/Cmd + Enter" class="flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white shadow-button transition-all duration-150 hover:bg-zinc-800 active:scale-[.99] focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
+                        <button type="submit" form="dailyReportForm" id="submitBtn" title="Phím tắt: Ctrl/Cmd + Enter" class="dr-send-btn">
                             <span id="submitText">Gửi báo cáo</span>
                             <svg id="loadingIcon" class="ml-2 h-4 w-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
                         </button>
+                        <button type="button" id="previewReport" class="dr-action dr-preview-btn">👁 Xem trước</button>
                     </div>
+                    <div class="dr-sendbar-draft"><span id="draftStatus">Bản nháp sẽ tự động lưu</span> <button type="button" id="clearDraft" class="hidden font-medium hover:text-red-600">· Xóa bản nháp</button></div>
                 </div>
             </div>
         </div>

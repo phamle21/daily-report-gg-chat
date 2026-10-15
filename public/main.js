@@ -14,6 +14,26 @@ $(document).ready(function () {
         });
     }
 
+    // http://daily-report.local is not a secure context, so navigator.clipboard is undefined there.
+    function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text).then(() => true, () => copyViaTextarea(text));
+        }
+        return $.Deferred().resolve(copyViaTextarea(text)).promise();
+    }
+    function copyViaTextarea(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
+
     function confirmDelete(title, text) {
         return Swal.fire({
             icon: 'warning',
@@ -1132,8 +1152,37 @@ Ghi chú bổ sung (nếu có):
             + '<input type="text" class="dr-wc-row-vn" placeholder="Tên task (VN) *" value="' + escapeHtml(item.heading || '') + '">'
             + '<input type="text" class="dr-wc-row-en" placeholder="Tên EN" value="' + escapeHtml(item.en_name || '') + '">'
             + '<input type="number" class="dr-wc-row-pt" min="0" step="1" value="' + (item.storypoint || 1) + '" title="Story point">'
+            + '<input type="date" class="dr-wc-row-start" value="' + escapeHtml(item.start_date || dateToValue(new Date())) + '" title="Bắt đầu">'
+            + '<input type="date" class="dr-wc-row-due" value="' + escapeHtml(item.due_date || dateToValue(new Date())) + '" title="Hạn">'
             + '<button type="button" class="dr-wc-row-del" title="Xóa dòng">×</button>'
             + '</div>';
+    }
+
+    // Paste format, one task per line: Tên VN | Tên EN | point | bắt đầu | hạn
+    // Lines starting with # are comments; a leading "- " or "1. " is tolerated.
+    const WC_PASTE_FORMAT = 'Tên VN | Tên EN | story point | ngày bắt đầu | ngày hạn';
+    function weproParsePaste(text) {
+        const dateOk = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+        return String(text || '').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(function (line) {
+            const parts = line.replace(/^(?:[-*•]|\d+[.)])\s+/, '').split('|').map(x => x.trim());
+            return { heading: parts[0] || '', en_name: parts[1] || '', storypoint: Number(parts[2]) > 0 ? Number(parts[2]) : 1, start_date: dateOk(parts[3] || ''), due_date: dateOk(parts[4] || '') };
+        }).filter(it => it.heading);
+    }
+    function weproAiTaskPrompt() {
+        const today = dateToValue(new Date());
+        return 'Hãy chia công việc sau thành danh sách task để tôi tạo trên WePRO.\n'
+            + 'Xuất ra DUY NHẤT các dòng theo đúng định dạng, không giải thích, không đánh số, không markdown:\n'
+            + WC_PASTE_FORMAT + '\n'
+            + 'Quy tắc:\n'
+            + '- Tên VN: ngắn gọn, có tiền tố loại trong ngoặc vuông, ví dụ [Backoffice] Sửa màn hình đơn hàng.\n'
+            + '- Tên EN: dịch sang tiếng Anh cùng tiền tố; để trống nếu không cần.\n'
+            + '- story point: số nguyên 1-8 theo độ phức tạp.\n'
+            + '- ngày: định dạng YYYY-MM-DD, hôm nay là ' + today + '; các task nối tiếp nhau, bỏ qua thứ 7 và chủ nhật.\n'
+            + '- Mỗi dòng một task, ngăn cách bằng dấu |, giữ đúng 5 cột kể cả khi để trống.\n'
+            + 'Ví dụ:\n'
+            + '[Backoffice] Sửa màn hình đơn hàng | [Backoffice] Fix order screen | 2 | ' + today + ' | ' + today + '\n'
+            + '[API] Thêm filter theo trạng thái | [API] Add status filter | 1 | ' + today + ' | ' + today + '\n\n'
+            + 'Công việc cần chia:\n';
     }
 
     // opts.parentId preselects the parent (from the picker's "＋ task con").
@@ -1146,7 +1195,7 @@ Ghi chú bổ sung (nếu có):
             if ($('#wcMode').val() === 'bulk') {
                 return $('#wcRows .dr-wc-row').map(function () {
                     const heading = $(this).find('.dr-wc-row-vn').val().trim();
-                    return heading ? { heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1 } : null;
+                    return heading ? { heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1, start_date: $(this).find('.dr-wc-row-start').val() || '', due_date: $(this).find('.dr-wc-row-due').val() || '' } : null;
                 }).get();
             }
             const heading = $('#wcHeading').val().trim();
@@ -1183,7 +1232,11 @@ Ghi chú bổ sung (nếu có):
                 + '<label class="dr-wc-field"><span>Ước lượng (giờ)</span><input type="number" id="wcEstimate" min="0" step="1" value="0"></label></div>'
                 + '</div>'
                 + '<div class="dr-wc-pane hidden" data-pane="bulk">'
-                + '<div class="dr-wc-rows-head"><span>Tên task (VN) *</span><span>Tên EN</span><span>Point</span><span></span></div>'
+                + '<details class="dr-wc-paste"><summary>📋 Dán danh sách từ AI / bảng</summary>'
+                + '<textarea id="wcPaste" rows="5" placeholder="' + escapeHtml(WC_PASTE_FORMAT) + '\n[Backoffice] Sửa màn hình đơn hàng | [Backoffice] Fix order screen | 2 | 2026-10-15 | 2026-10-16"></textarea>'
+                + '<div class="dr-wc-paste-foot"><button type="button" id="wcPasteApply" class="dr-chip">⬇ Đổ vào bảng</button><button type="button" id="wcCopyPrompt" class="dr-chip">✦ Copy prompt cho AI</button><span class="dr-wc-hint" id="wcPasteCount"></span></div>'
+                + '</details>'
+                + '<div class="dr-wc-rows-head"><span>Tên task (VN) *</span><span>Tên EN</span><span>Point</span><span>Bắt đầu</span><span>Hạn</span><span></span></div>'
                 + '<div id="wcRows">' + weproRepeaterRowHtml() + weproRepeaterRowHtml() + '</div>'
                 + '<div class="dr-wc-rows-foot"><button type="button" id="wcAddRow" class="dr-chip">＋ Thêm dòng</button><span class="dr-wc-hint" id="wcBulkCount">Điền tên VN cho từng dòng, dòng trống bị bỏ qua</span></div>'
                 + '</div>'
@@ -1194,7 +1247,7 @@ Ghi chú bổ sung (nếu có):
                 + '</div>'
                 + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Trạng thái</span><select id="wcStatus"></select></label>'
                 + '<label class="dr-wc-field"><span>Sprint</span><select id="wcSprint"><option value="">— Không —</option></select></label></div>'
-                + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Bắt đầu</span><input type="date" id="wcStart" data-allow-custom="true" value="' + today + '"></label>'
+                + '<div class="dr-wc-grid" id="wcCommonDates"><label class="dr-wc-field"><span>Bắt đầu</span><input type="date" id="wcStart" data-allow-custom="true" value="' + today + '"></label>'
                 + '<label class="dr-wc-field"><span>Hạn</span><input type="date" id="wcDue" data-allow-custom="true" value="' + today + '"></label></div>'
                 + (opts.returnToPicker ? '<p class="dr-wc-hint">Tạo xong sẽ quay lại danh sách Chọn task, task mới được tick sẵn.</p>' : '<label class="dr-wc-check"><input type="checkbox" id="wcAddToReport" checked> Thêm task vừa tạo vào report hôm nay</label>')
                 + '</div>',
@@ -1211,12 +1264,40 @@ Ghi chú bổ sung (nếu có):
                     $('.dr-wc-tabs .dr-chip').removeClass('is-active'); $(this).addClass('is-active');
                     $('#wcMode').val(mode);
                     $('.dr-wc-pane').addClass('hidden').filter('[data-pane="' + mode + '"]').removeClass('hidden');
+                    $('#wcCommonDates').toggleClass('hidden', mode === 'bulk');
                     updateCount();
                 });
                 $(document).on('input.wc', '#wcHeading, #wcRows input', updateCount);
                 $('#wcAddRow').on('click', function () {
                     $('#wcRows').append(weproRepeaterRowHtml());
                     $('#wcRows .dr-wc-row-vn').last().trigger('focus');
+                });
+                $(document).on('input.wc', '#wcPaste', function () {
+                    const n = weproParsePaste($(this).val()).length;
+                    $('#wcPasteCount').text(n ? 'Nhận ra ' + n + ' task' : '');
+                });
+                $('#wcPasteApply').on('click', function () {
+                    const items = weproParsePaste($('#wcPaste').val());
+                    if (!items.length) { $('#wcPasteCount').text('Không nhận ra dòng nào. Mỗi dòng: ' + WC_PASTE_FORMAT); return; }
+                    // Replace blank rows, append after filled ones.
+                    const hasFilled = $('#wcRows .dr-wc-row-vn').toArray().some(el => $(el).val().trim());
+                    if (!hasFilled) $('#wcRows').empty();
+                    $('#wcRows').append(items.map(weproRepeaterRowHtml).join(''));
+                    $('#wcPaste').val('');
+                    $('#wcPasteCount').text('Đã đổ ' + items.length + ' task vào bảng');
+                    updateCount();
+                });
+                $('#wcCopyPrompt').on('click', function () {
+                    const $btn = $(this);
+                    copyToClipboard(weproAiTaskPrompt()).then(function (ok) {
+                        if (ok) {
+                            $btn.text('✓ Đã copy'); setTimeout(() => $btn.text('✦ Copy prompt cho AI'), 1800);
+                            $('#wcPasteCount').text('Đã copy prompt, dán cho AI rồi dán kết quả vào ô trên.');
+                        } else {
+                            $('#wcPaste').val(weproAiTaskPrompt()).trigger('select');
+                            $('#wcPasteCount').text('Trình duyệt không cho copy tự động, prompt đã đặt vào ô trên, Ctrl+C để copy.');
+                        }
+                    });
                 });
                 $(document).on('click.wc', '.dr-wc-row-del', function () {
                     if ($('#wcRows .dr-wc-row').length > 1) $(this).closest('.dr-wc-row').remove(); else $(this).closest('.dr-wc-row').find('input[type=text]').val('');
@@ -1254,7 +1335,10 @@ Ghi chú bổ sung (nếu có):
             preConfirm: function () {
                 const items = collectItems();
                 if (!items.length) { Swal.showValidationMessage('Nhập ít nhất một tên task.'); return false; }
-                if (!$('#wcStart').val() || !$('#wcDue').val() || $('#wcStart').val() > $('#wcDue').val()) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng hạn.'); return false; }
+                if ($('#wcMode').val() === 'bulk') {
+                    const bad = items.find(it => !it.start_date || !it.due_date || it.start_date > it.due_date);
+                    if (bad) { Swal.showValidationMessage('Dòng "' + bad.heading + '": thiếu ngày hoặc bắt đầu sau hạn.'); return false; }
+                } else if (!$('#wcStart').val() || !$('#wcDue').val() || $('#wcStart').val() > $('#wcDue').val()) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng hạn.'); return false; }
                 return {
                     items,
                     parent_id: Number($('#wcParent').val()) || 0,
@@ -1302,6 +1386,8 @@ Ghi chú bổ sung (nếu có):
             data['tasks[' + i + '][en_name]'] = it.en_name || '';
             data['tasks[' + i + '][storypoint]'] = it.storypoint || 1;
             data['tasks[' + i + '][estimate_hours]'] = it.estimate_hours || 0;
+            if (it.start_date) data['tasks[' + i + '][start_date]'] = it.start_date;
+            if (it.due_date) data['tasks[' + i + '][due_date]'] = it.due_date;
         });
         weproCreateAjax(data)
             .done(function (res) {
@@ -1314,13 +1400,13 @@ Ghi chú bổ sung (nếu có):
                     const cached = weproCacheGet(project);
                     if (cached) {
                         ok.forEach(function (r) {
-                            cached.tasks.push({ id: r.id, short_code: 'mới', full_code: '', title: r.heading, title_en: '', percent: 0, start_date: v.start_date, due_date: v.due_date, subtask_count: 0, parent_id: v.parent_id, status: 'new', url: r.url, timelog_url: r.timelog_url });
+                            cached.tasks.push({ id: r.id, short_code: 'mới', full_code: '', title: r.heading, title_en: '', percent: 0, start_date: r.start_date || v.start_date, due_date: r.due_date || v.due_date, subtask_count: 0, parent_id: v.parent_id, status: 'new', url: r.url, timelog_url: r.timelog_url });
                         });
                         weproCacheSet(project, cached.tasks);
                     }
                     if (v.addToReport) {
                         ok.forEach(function (r) {
-                            addTodayTask({ wepro_id: r.id, wepro_timelog_url: r.timelog_url, wepro_code: '', issue_no: '', content: r.heading, progress: '', estimate: v.due_date, status: 'Chưa bắt đầu' });
+                            addTodayTask({ wepro_id: r.id, wepro_timelog_url: r.timelog_url, wepro_code: '', issue_no: '', content: r.heading, progress: '', estimate: r.due_date || v.due_date, status: 'Chưa bắt đầu' });
                         });
                         scheduleDraftSave();
                     }

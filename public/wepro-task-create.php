@@ -166,6 +166,13 @@ foreach (array_values($items) as $i => $item) {
         continue;
     }
     $en = trim((string)($item['en_name'] ?? ''));
+    // A row may carry its own dates; otherwise the common ones apply.
+    $startDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($item['start_date'] ?? '')) ? $item['start_date'] : $common['start_date'];
+    $dueDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($item['due_date'] ?? '')) ? $item['due_date'] : $common['due_date'];
+    if ($startDate > $dueDate) {
+        $results[] = ['index' => $i, 'success' => false, 'heading' => $heading, 'message' => 'Ngày bắt đầu sau ngày hạn'];
+        continue;
+    }
     $fields = [
         'f_email' => '', 'f_slack_username' => '', 'redirect_url' => '',
         '_token' => $token,
@@ -178,8 +185,8 @@ foreach (array_values($items) as $i => $item) {
         'en_name' => $en,
         'priority' => $common['priority'],
         'storypoint' => (string)max(0, (int)($item['storypoint'] ?? 1)),
-        'start_date' => $common['start_date'],
-        'due_date' => $common['due_date'],
+        'start_date' => $startDate,
+        'due_date' => $dueDate,
         'user_id[0]' => (string)$common['user_id'],
         'description' => '<p><br></p>',
         'note' => '<p><br></p>',
@@ -210,6 +217,7 @@ foreach (array_values($items) as $i => $item) {
         $results[] = [
             'index' => $i, 'success' => true, 'id' => $id, 'heading' => $heading,
             'url' => $baseUrl . '/account/tasks/' . $id,
+            'start_date' => $startDate, 'due_date' => $dueDate,
             'timelog_url' => $baseUrl . '/account/timelogs/create-timelog-simple/' . $id,
         ];
         continue;
