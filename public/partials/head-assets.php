@@ -213,6 +213,17 @@
         .dr-action-primary { border-color:#18181b; background:#18181b; color:#fff; }
         .dr-action-primary:hover { border-color:#27272a; background:#27272a; color:#fff; }
         .dr-action-icon { height:15px; width:15px; }
+        /* Colour = function: indigo WePRO, sky logtime, emerald bulk input, violet AI, amber backfill, red destructive */
+        .dr-action-indigo { border-color:#4f46e5; background:#4f46e5; color:#fff; }
+        .dr-action-indigo:hover { border-color:#4338ca; background:#4338ca; color:#fff; }
+        .dr-action-indigo-soft { border-color:#c7d2fe; background:#eef2ff; color:#4338ca; }
+        .dr-action-indigo-soft:hover { border-color:#a5b4fc; background:#e0e7ff; color:#3730a3; }
+        .dr-action-sky { border-color:#bae6fd; background:#f0f9ff; color:#0369a1; }
+        .dr-action-sky:hover { border-color:#7dd3fc; background:#e0f2fe; color:#075985; }
+        .dr-action-emerald { border-color:#a7f3d0; background:#ecfdf5; color:#047857; }
+        .dr-action-emerald:hover { border-color:#6ee7b7; background:#d1fae5; color:#065f46; }
+        .dr-action-violet { border-color:#ddd6fe; background:#f5f3ff; color:#6d28d9; }
+        .dr-action-violet:hover { border-color:#c4b5fd; background:#ede9fe; color:#5b21b6; }
         .dr-action-danger { margin-left:auto; color:#be123c; }
         .dr-action-danger:hover { border-color:#fecdd3; background:#fff1f2; color:#e11d48; }
 
@@ -241,6 +252,15 @@
         .dr-status.err { color:#be123c; border-color:#fecdd3; cursor:pointer; }
         .dr-status.wait .dr-status-dot { background:#f59e0b; animation:drPulse 1s ease-in-out infinite; }
         .dr-status.off { color:#71717a; border-style:dashed; cursor:pointer; }
+        .dr-status { cursor:pointer; }
+        .dr-status.noproj { color:#b45309; border-color:#fde68a; background:#fffbeb; }
+        .dr-status.noproj .dr-status-dot { background:#f59e0b; }
+        .dr-ws { text-align:left; display:flex; flex-direction:column; gap:6px; }
+        .dr-ws-row { display:grid; grid-template-columns:130px 1fr; gap:10px; border-bottom:1px dashed #e4e4e7; padding:6px 0; font-size:13px; }
+        .dr-ws-label { font-weight:600; color:#52525b; }
+        .dr-ws-value { color:#18181b; word-break:break-word; }
+        .dr-ws-value.is-ok { color:#047857; font-weight:600; }
+        .dr-ws-value.is-bad { color:#be123c; font-weight:600; }
         .dr-status.off .dr-status-dot { background:#a1a1aa; }
         @keyframes drPulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
         /* ===== Send panel: in-flow card below the form; docked right on wide screens ===== */

@@ -359,7 +359,7 @@ if ($submitGoogleForm && !empty($googleFormConfig['url'])) {
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 15,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
     ]);
     $formResp = curl_exec($chForm);
     $formHttpCode = curl_getinfo($chForm, CURLINFO_HTTP_CODE);

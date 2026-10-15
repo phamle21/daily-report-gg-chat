@@ -91,7 +91,7 @@ curl_setopt_array($ch, [
     CURLOPT_SSL_VERIFYPEER => true,
     CURLOPT_SSL_VERIFYHOST => 2,
     CURLOPT_TIMEOUT => 15,
-    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
 ]);
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

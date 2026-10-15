@@ -61,7 +61,7 @@ function e($value)
                     <p class="mt-1 text-sm text-zinc-500"><?= htmlspecialchars($today) ?></p>
                 </div>
                 <div class="flex gap-2">
-                    <button type="button" id="googleFormRangeBtn" class="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50" title="Nộp logtime RCVN (Google Form) cho các ngày đã quên">🗓 Logtime RCVN bù</button>
+                    <button type="button" id="googleFormRangeBtn" class="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 shadow-button transition-colors hover:bg-amber-100" title="Nộp logtime RCVN (Google Form) cho các ngày đã quên">🗓 Logtime RCVN bù</button>
                     <a href="history.php" class="inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">Lịch sử</a>
                     <span id="weproStatus" class="dr-status wait" title="Đang kiểm tra cookie WePRO"><span class="dr-status-dot"></span><span class="dr-status-text">WePRO: đang kiểm tra...</span></span>
                     <a href="settings.php" class="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-zinc-950 px-3 text-sm font-medium text-white shadow-button transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2">
@@ -137,17 +137,17 @@ function e($value)
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
                         Thêm task
                     </button>
-                    <button type="button" id="wepro-pick-task" class="dr-action" title="Chọn task từ WePRO và điền vào report">
+                    <button type="button" id="wepro-pick-task" class="dr-action dr-action-indigo" title="Chọn task từ WePRO và điền vào report">
                         ▤ Chọn task WePRO
                     </button>
-                    <button type="button" id="wepro-create-task" class="dr-action" title="Tạo task mới trên WePRO, một hoặc nhiều task một lần">＋ Tạo task WePRO</button>
-                    <button type="button" id="wepro-log-bulk" class="dr-action" title="Logtime lên WePRO cho mọi task đã gắn WePRO">⏱ Logtime WePRO</button>
+                    <button type="button" id="wepro-create-task" class="dr-action dr-action-indigo-soft" title="Tạo task mới trên WePRO, một hoặc nhiều task một lần">＋ Tạo task WePRO</button>
+                    <button type="button" id="wepro-log-bulk" class="dr-action dr-action-sky" title="Logtime lên WePRO cho mọi task đã gắn WePRO">⏱ Logtime WePRO</button>
                     <span id="weproLoggedTotal" class="dr-wlog-badge hidden"></span>
-                    <button type="button" id="bulk-task-today" class="dr-action">
+                    <button type="button" id="bulk-task-today" class="dr-action dr-action-emerald">
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
                         Nhập nhiều dòng
                     </button>
-                    <button type="button" id="ai-task-prompt" class="dr-action" title="Lấy prompt để nhờ AI tổng hợp task trong ngày, rồi dán kết quả vào Nhập nhiều dòng">
+                    <button type="button" id="ai-task-prompt" class="dr-action dr-action-violet" title="Lấy prompt để nhờ AI tổng hợp task trong ngày, rồi dán kết quả vào Nhập nhiều dòng">
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.75 11 7l3.25 1.25L11 9.5l-1.25 3.25L8.5 9.5 5.25 8.25 8.5 7l1.25-3.25ZM16.5 11l.75 2 2 .75-2 .75-.75 2-.75-2-2-.75 2-.75.75-2Z"></path></svg>
                         Prompt AI
                     </button>

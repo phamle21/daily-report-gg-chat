@@ -2,6 +2,7 @@
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/partials/wepro-browser.php';
 
 function fail($message, $code = 200)
 {
@@ -51,13 +52,13 @@ function weproRequest($url, $opts, $wepro, $cookie, $jar)
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
     ];
     if (($wepro['basic_user'] ?? '') !== '') {
         $base[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
         $base[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
     }
-    curl_setopt_array($ch, $base + $opts);
+    curl_setopt_array($ch, weproBrowserOpts($base + $opts, rtrim((string)($wepro['base_url'] ?? ''), '/')));
     $body = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);

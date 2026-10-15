@@ -793,12 +793,28 @@ Ghi chú bổ sung (nếu có):
         return String(Math.min(100, Math.max(0, Math.round(Number(percent) / 10) * 10)));
     }
 
+    // Set before reopening the picker so ticks and the search survive a round trip to "Tạo task con".
+    let weproPickerRestore = null;
     function weproRenderList(tasks, fetchedAt) {
         weproTasks = tasks;
         $('#weproPickNote').text('Tick task muốn đưa vào report (' + tasks.length + ' task)' + weproFetchedLabel(fetchedAt));
         $('#weproPickList').html(weproTaskListHtml(tasks));
         $('#weproPickTools').removeClass('hidden');
         Swal.getConfirmButton().disabled = false;
+        if (weproPickerRestore) {
+            const r = weproPickerRestore;
+            weproPickerRestore = null;
+            $('#weproPickList .dr-wepro-check').each(function () {
+                const id = (weproTasks[Number(this.value)] || {}).id;
+                this.checked = r.ticked.indexOf(id) !== -1;
+            });
+            $('#weproPickSearch').val(r.needle || '').trigger('input');
+            if (r.highlight && r.highlight.length) {
+                const $first = $('#weproPickList .dr-wepro-check').filter(function () { return r.highlight.indexOf((weproTasks[Number(this.value)] || {}).id) !== -1; }).first().closest('.dr-wepro-item');
+                if ($first.length) $first[0].scrollIntoView({ block: 'center' });
+            }
+            if (r.toast) $('#weproPickNote').text(r.toast);
+        }
     }
 
     function weproLoadInto(force) {
@@ -984,28 +1000,68 @@ Ghi chú bổ sung (nếu có):
     }
     $('#submitGoogleForm, #submitGoogleChat, #submitSlack, #historyOnly').on('change', syncSubmitLabel);
 
+    let weproStatusLast = null;
     function setWeproStatus(state, text, title) {
-        $('#weproStatus').removeClass('hidden ok err wait off').addClass(state).attr('title', title || text)
+        $('#weproStatus').removeClass('hidden ok err wait off noproj').addClass(state).attr('title', title || text)
             .find('.dr-status-text').text('WePRO: ' + text);
     }
+    // Checked per project: the login is shared, the WePRO Project ID is not.
     function checkWeproStatus() {
-        setWeproStatus('wait', 'đang kiểm tra...', 'Đang kiểm tra cookie WePRO');
-        $.ajax({ url: 'wepro-timelog.php', method: 'POST', dataType: 'json', data: { csrf_token: weproCsrf(), action: 'ping' } })
+        const project = $('#project').val() || '';
+        setWeproStatus('wait', 'đang kiểm tra...', 'Đang kiểm tra kết nối WePRO cho ' + project);
+        return $.ajax({ url: 'wepro-timelog.php', method: 'POST', dataType: 'json', data: { csrf_token: weproCsrf(), action: 'ping', project } })
             .done(function (res) {
-                if (res && res.disabled) { setWeproStatus('off', 'tắt', 'WePRO đang tắt trong Thiết lập. Bấm để bật.'); return; }
-                if (res && res.success) { setWeproStatus('ok', 'đã kết nối', 'Cookie WePRO còn hạn'); return; }
-                setWeproStatus('err', 'lỗi', (res && res.message) || 'WePRO chưa kết nối. Bấm để vào Thiết lập.');
+                weproStatusLast = res || null;
+                if (res && res.disabled) { setWeproStatus('off', 'tắt', 'WePRO đang tắt trong Thiết lập. Bấm để xem.'); return; }
+                if (res && res.success) { setWeproStatus('ok', project, 'Đã kết nối, project ' + project + ' có WePRO ID ' + res.info.project_id); return; }
+                if (res && res.login_ok && !res.project_ok) { setWeproStatus('noproj', project + ' thiếu ID', res.message); return; }
+                setWeproStatus('err', 'lỗi', (res && res.message) || 'WePRO chưa kết nối. Bấm để xem chi tiết.');
             })
-            .fail(function () { setWeproStatus('err', 'lỗi', 'Không gọi được máy chủ. Bấm để vào Thiết lập.'); });
+            .fail(function () { weproStatusLast = null; setWeproStatus('err', 'lỗi', 'Không gọi được máy chủ. Bấm để xem chi tiết.'); });
     }
-    $('#weproStatus').on('click', function () { if ($(this).is('.err, .off')) window.location.href = 'settings.php?step=3'; });
+    $('#project').on('change', function () { checkWeproStatus(); });
+
+    function weproStatusRow(label, value, ok) {
+        return '<div class="dr-ws-row"><span class="dr-ws-label">' + label + '</span><span class="dr-ws-value' + (ok === true ? ' is-ok' : ok === false ? ' is-bad' : '') + '">' + value + '</span></div>';
+    }
+    $('#weproStatus').on('click', function () {
+        const res = weproStatusLast;
+        const project = $('#project').val() || '';
+        let rows = '';
+        if (!res || res.disabled) {
+            rows = weproStatusRow('Trạng thái', res && res.disabled ? 'WePRO đang tắt trong Thiết lập' : 'Chưa kiểm tra được (máy chủ không phản hồi)', false);
+        } else {
+            const i = res.info || {};
+            rows += weproStatusRow('Đăng nhập', escapeHtml(res.login_ok ? 'OK' : 'Lỗi') + ' — ' + escapeHtml(res.login_ok ? 'cookie còn hạn' : res.message), !!res.login_ok);
+            rows += weproStatusRow('Project ' + escapeHtml(project), res.project_ok ? 'WePRO Project ID ' + escapeHtml(i.project_id) : 'Chưa có WePRO Project ID → Thiết lập → Project', !!res.project_ok);
+            rows += weproStatusRow('Địa chỉ', escapeHtml(i.base_url || ''));
+            rows += weproStatusRow('Basic auth', escapeHtml(i.basic_user || '(trống)') + (i.basic_pass_set ? ' · mật khẩu đã lưu' : ' · chưa có mật khẩu'), !!i.basic_user && !!i.basic_pass_set);
+            rows += weproStatusRow('Cookie', i.cookie_name ? escapeHtml(i.cookie_name) + ' · ' + i.cookie_length + ' ký tự' : 'Chưa dán cookie', !!i.cookie_name);
+            rows += weproStatusRow('Lấy cả task con', i.include_subtasks ? 'Bật (chậm hơn)' : 'Tắt');
+            rows += weproStatusRow('Phản hồi', 'HTTP ' + i.http_code + ' · ' + i.latency_ms + ' ms · ' + new Date(i.checked_at).toLocaleTimeString('vi-VN'));
+        }
+        Swal.fire({
+            title: 'Kết nối WePRO',
+            html: '<div class="dr-ws">' + rows + '</div>',
+            buttonsStyling: false,
+            customClass: WEPRO_SWAL_CLASS,
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: 'Mở Thiết lập',
+            denyButtonText: '⟳ Kiểm tra lại',
+            cancelButtonText: 'Đóng'
+        }).then(function (r) {
+            if (r.isConfirmed) window.location.href = 'settings.php?step=' + (res && res.login_ok && !res.project_ok ? 2 : 3);
+            if (r.isDenied) checkWeproStatus().always(function () { $('#weproStatus').trigger('click'); });
+        });
+    });
 
     // ===== WEPRO: log giờ =====
     const WEPRO_LOGGED_KEY = 'dr-wepro-logged-v2';
     const WEPRO_SWAL_CLASS = {
         popup: 'dr-swal', title: 'dr-swal-title', htmlContainer: 'dr-swal-html',
         actions: 'dr-modal-actions', confirmButton: 'dr-modal-confirm', cancelButton: 'dr-modal-cancel',
-        validationMessage: 'dr-modal-validation'
+        denyButton: 'dr-modal-cancel', validationMessage: 'dr-modal-validation'
     };
 
     // Remembers successful logs {date, project, task, hours}: a second log asks first,
@@ -1140,13 +1196,13 @@ Ghi chú bổ sung (nếu có):
                 + '<label class="dr-wc-field"><span>Sprint</span><select id="wcSprint"><option value="">— Không —</option></select></label></div>'
                 + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Bắt đầu</span><input type="date" id="wcStart" data-allow-custom="true" value="' + today + '"></label>'
                 + '<label class="dr-wc-field"><span>Hạn</span><input type="date" id="wcDue" data-allow-custom="true" value="' + today + '"></label></div>'
-                + '<label class="dr-wc-check"><input type="checkbox" id="wcAddToReport" checked> Thêm task vừa tạo vào report hôm nay</label>'
+                + (opts.returnToPicker ? '<p class="dr-wc-hint">Tạo xong sẽ quay lại danh sách Chọn task, task mới được tick sẵn.</p>' : '<label class="dr-wc-check"><input type="checkbox" id="wcAddToReport" checked> Thêm task vừa tạo vào report hôm nay</label>')
                 + '</div>',
             buttonsStyling: false,
             customClass: WEPRO_SWAL_CLASS,
             showCancelButton: true,
             confirmButtonText: 'Tạo task',
-            cancelButtonText: 'Hủy',
+            cancelButtonText: opts.returnToPicker ? '← Về danh sách' : 'Hủy',
             didOpen: function () {
                 Swal.getConfirmButton().disabled = true;
                 $('#wcStart, #wcDue').each(function () { enhanceDateInput(this); });
@@ -1207,13 +1263,22 @@ Ghi chú bổ sung (nếu có):
                     start_date: $('#wcStart').val(),
                     due_date: $('#wcDue').val(),
                     user_id: form ? form.me : 0,
-                    addToReport: $('#wcAddToReport').prop('checked')
+                    addToReport: !opts.returnToPicker && $('#wcAddToReport').prop('checked'),
+                    returnToPicker: opts.returnToPicker || null
                 };
             }
         }).then(function (result) {
-            if (!result.isConfirmed) return;
+            if (!result.isConfirmed) {
+                if (opts.returnToPicker) weproReopenPicker(opts.returnToPicker);
+                return;
+            }
             weproSubmitCreate(result.value);
         });
+    }
+
+    function weproReopenPicker(state) {
+        weproPickerRestore = state;
+        setTimeout(function () { $('#wepro-pick-task').trigger('click'); }, 120);
     }
 
     $('#wepro-create-task').on('click', function () { weproOpenCreate(); });
@@ -1223,8 +1288,10 @@ Ghi chú bổ sung (nếu có):
         event.preventDefault();
         event.stopPropagation();
         const parentId = Number($(this).data('id'));
+        const ticked = $('#weproPickList .dr-wepro-check:checked').map(function () { return (weproTasks[Number(this.value)] || {}).id; }).get();
+        const needle = $('#weproPickSearch').val() || '';
         Swal.close();
-        setTimeout(function () { weproOpenCreate({ parentId }); }, 150);
+        setTimeout(function () { weproOpenCreate({ parentId, returnToPicker: { ticked, needle } }); }, 150);
     });
 
     function weproSubmitCreate(v) {
@@ -1257,6 +1324,16 @@ Ghi chú bổ sung (nếu có):
                         });
                         scheduleDraftSave();
                     }
+                }
+                if (v.returnToPicker && ok.length && !bad.length) {
+                    const ids = ok.map(r => r.id);
+                    weproReopenPicker({
+                        ticked: v.returnToPicker.ticked.concat(ids),
+                        needle: '',
+                        highlight: ids,
+                        toast: 'Đã tạo ' + ok.length + ' task con, đã tick sẵn. Bấm "Thêm vào report" để đưa vào.'
+                    });
+                    return;
                 }
                 const list = ok.map(r => '<li>✓ <a href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener noreferrer">#' + r.id + '</a> ' + escapeHtml(r.heading) + '</li>').join('')
                     + bad.map(r => '<li class="is-bad">✕ ' + escapeHtml(r.heading || '(trống)') + ' — ' + escapeHtml(r.message) + '</li>').join('');

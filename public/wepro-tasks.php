@@ -2,6 +2,7 @@
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/partials/wepro-browser.php';
 
 function fail($message, $code = 200)
 {
@@ -78,13 +79,13 @@ $options = [
     CURLOPT_SSL_VERIFYPEER => true,
     CURLOPT_SSL_VERIFYHOST => 2,
     CURLOPT_TIMEOUT => 90,
-    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
 ];
 if (($wepro['basic_user'] ?? '') !== '') {
     $options[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
     $options[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
 }
-curl_setopt_array($ch, $options);
+curl_setopt_array($ch, weproBrowserOpts($options, $baseUrl, $baseUrl . '/account/projects/' . rawurlencode($projectId) . '?tab=tasks'));
 
 $body = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -145,13 +146,13 @@ function fetchGantt($baseUrl, $projectId, $cookie, $basicUser, $basicPass)
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
     ];
     if ($basicUser !== '') {
         $opts[CURLOPT_USERPWD] = $basicUser . ':' . $basicPass;
         $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
     }
-    curl_setopt_array($ch, $opts);
+    curl_setopt_array($ch, weproBrowserOpts($opts, $baseUrl, $baseUrl . '/account/projects/' . rawurlencode($projectId) . '?tab=gantt'));
     $body = curl_exec($ch);
     $ok = curl_getinfo($ch, CURLINFO_HTTP_CODE) === 200;
     curl_close($ch);

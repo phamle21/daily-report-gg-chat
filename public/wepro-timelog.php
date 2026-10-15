@@ -2,6 +2,7 @@
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/partials/wepro-browser.php';
 
 function fail($message, $code = 200)
 {
@@ -46,26 +47,55 @@ if ($action === 'ping') {
         CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_COOKIE => $cookie, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'],
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
     ];
     if (($wepro['basic_user'] ?? '') !== '') {
         $opts[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
         $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
     }
-    curl_setopt_array($ch, $opts);
+    curl_setopt_array($ch, weproBrowserOpts($opts, $baseUrl));
+    $t = microtime(true);
     curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
     curl_close($ch);
+    $ms = (int)round((microtime(true) - $t) * 1000);
+
+    // Per-project half: the login may be fine while this project still lacks its WePRO id.
+    $projectName = trim((string)($_POST['project'] ?? ''));
+    $projectId = trim((string)($config['projects'][$projectName]['wepro_project_id'] ?? ''));
+    $cookieName = preg_match('/^([^=]+)=/', $cookie, $m) ? $m[1] : '';
+    $info = [
+        'base_url' => $baseUrl,
+        'basic_user' => (string)($wepro['basic_user'] ?? ''),
+        'basic_pass_set' => ($wepro['basic_pass'] ?? '') !== '',
+        'cookie_name' => $cookieName,
+        'cookie_length' => strlen($cookie),
+        'include_subtasks' => !empty($wepro['include_subtasks']),
+        'project' => $projectName,
+        'project_id' => $projectId,
+        'http_code' => $code,
+        'latency_ms' => $ms,
+        'checked_at' => date('c'),
+    ];
     if ($code === 200) {
-        echo json_encode(['success' => true]);
+        $login = ['success' => true, 'message' => 'Cookie còn hạn, đăng nhập OK.'];
     } elseif ($code === 401) {
-        echo json_encode(['success' => false, 'message' => 'Sai user/mật khẩu cổng Basic auth.']);
+        $login = ['success' => false, 'message' => 'Sai user/mật khẩu cổng Basic auth.'];
     } elseif ($code === 0) {
-        echo json_encode(['success' => false, 'message' => 'Không gọi được WePRO: ' . $err]);
+        $login = ['success' => false, 'message' => 'Không gọi được WePRO: ' . $err];
     } else {
-        echo json_encode(['success' => false, 'message' => 'Cookie WePRO đã hết hạn (HTTP ' . $code . '). Vào Thiết lập dán cookie mới.']);
+        $login = ['success' => false, 'message' => 'Cookie WePRO đã hết hạn (HTTP ' . $code . '). Vào Thiết lập dán cookie mới.'];
     }
+    echo json_encode([
+        'success' => $login['success'] && $projectId !== '',
+        'login_ok' => $login['success'],
+        'project_ok' => $projectId !== '',
+        'message' => $login['success'] && $projectId === ''
+            ? 'Project “' . $projectName . '” chưa có WePRO Project ID.'
+            : $login['message'],
+        'info' => $info,
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -89,13 +119,13 @@ function weproRequest($url, $opts, $wepro, $cookie, $jar)
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; DailyReport/1.0)',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
     ];
     if (($wepro['basic_user'] ?? '') !== '') {
         $base[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
         $base[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
     }
-    curl_setopt_array($ch, $base + $opts);
+    curl_setopt_array($ch, weproBrowserOpts($base + $opts, rtrim((string)($wepro['base_url'] ?? ''), '/')));
     $body = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
