@@ -49,9 +49,9 @@ function e($value)
     <?php require __DIR__ . '/partials/head-assets.php'; ?>
 </head>
 
-<body class="min-h-screen bg-background text-foreground antialiased">
+<body class="min-h-screen bg-background text-foreground antialiased dr-wepro-off">
     <main class="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,175,55,0.16),transparent_34%),linear-gradient(180deg,#d4d4d8_0%,#c4c4ca_45%,#b4b4bb_100%)] px-3 py-4 sm:px-4 sm:py-6">
-    <div class="w-full max-w-5xl mx-auto animate-fade-in">
+    <div class="w-full max-w-5xl mx-auto animate-fade-in dr-page">
 
         <!-- Header -->
         <div class="mb-5 animate-slide-up">
@@ -137,11 +137,11 @@ function e($value)
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
                         Thêm task
                     </button>
-                    <button type="button" id="wepro-pick-task" class="dr-action dr-action-indigo" title="Chọn task từ WePRO và điền vào report">
+                    <button type="button" id="wepro-pick-task" class="dr-action dr-action-indigo hidden" title="Chọn task từ WePRO và điền vào report">
                         ▤ Chọn task WePRO
                     </button>
-                    <button type="button" id="wepro-create-task" class="dr-action dr-action-indigo-soft" title="Tạo task mới trên WePRO, một hoặc nhiều task một lần">＋ Tạo task WePRO</button>
-                    <button type="button" id="wepro-log-bulk" class="dr-action dr-action-sky" title="Logtime lên WePRO cho mọi task đã gắn WePRO">⏱ Logtime WePRO</button>
+                    <button type="button" id="wepro-create-task" class="dr-action dr-action-indigo-soft hidden" title="Tạo task mới trên WePRO, một hoặc nhiều task một lần">＋ Tạo task WePRO</button>
+                    <button type="button" id="wepro-log-bulk" class="dr-action dr-action-sky hidden" title="Logtime lên WePRO cho mọi task đã gắn WePRO">⏱ Logtime WePRO</button>
                     <span id="weproLoggedTotal" class="dr-wlog-badge hidden"></span>
                     <button type="button" id="bulk-task-today" class="dr-action dr-action-emerald">
                         <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>

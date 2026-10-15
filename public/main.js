@@ -747,24 +747,41 @@ Ghi chú bổ sung (nếu có):
         return ' · cập nhật ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
-    function weproTaskItemHtml(task, index, isChild, hasChildren) {
+    const WEPRO_STATUS = {
+        new: { label: 'Mới', cls: 'st-new' },
+        doing: { label: 'Đang làm', cls: 'st-doing' },
+        on_hold: { label: 'Tạm hoãn', cls: 'st-hold' },
+        completed: { label: 'Xong', cls: 'st-done' }
+    };
+    function weproInReportIds() {
+        return $('#tasks-today-list .dr-taskrow').map(function () { return Number($(this).data('weproId')) || 0; }).get().filter(Boolean);
+    }
+    function weproTaskItemHtml(task, index, isChild, hasChildren, inReport) {
         const en = task.title_en && task.title_en !== task.title
             ? '<span class="dr-wepro-en">' + escapeHtml(task.title_en) + '</span>'
             : '';
-        const badge = task.subtask_count > 0
-            ? '<span class="dr-wepro-badge">' + task.subtask_count + ' task con</span>'
-            : '';
-        return '<label class="dr-wepro-item' + (isChild ? ' is-child' : '') + '" data-idx="' + index + '">'
+        const st = WEPRO_STATUS[task.status] || null;
+        const pct = Math.max(0, Math.min(100, Number(task.percent) || 0));
+        const pctCls = pct >= 100 ? 'is-done' : pct > 0 ? 'is-doing' : '';
+        const shortUrl = task.url ? String(task.url).replace(/^https?:\/\//, '') : '';
+        return '<label class="dr-wepro-item' + (isChild ? ' is-child' : '') + (hasChildren ? ' is-parent' : '') + (inReport ? ' in-report' : '') + '" data-idx="' + index + '" data-status="' + escapeHtml(task.status || '') + '">'
             + '<input type="checkbox" class="dr-wepro-check" value="' + index + '">'
             + '<span class="dr-wepro-body">'
-            + '<span class="dr-wepro-code">' + escapeHtml(task.short_code) + badge + '</span>'
+            + '<span class="dr-wepro-meta">'
+            + '<span class="dr-wepro-code">' + escapeHtml(task.short_code) + '</span>'
+            + (st ? '<span class="dr-wepro-status ' + st.cls + '">' + st.label + '</span>' : '')
+            + (hasChildren ? '<span class="dr-wepro-badge">' + (task.subtask_count || '') + ' task con</span>' : '')
+            + (inReport ? '<span class="dr-wepro-inreport">✓ đã có trong report</span>' : '')
+            + '</span>'
             + '<span class="dr-wepro-title">' + escapeHtml(task.title) + '</span>'
             + en
-            + (task.url ? '<a class="dr-wepro-link" href="' + escapeHtml(task.url) + '" target="_blank" rel="noopener noreferrer" title="Mở task trên WePRO">' + escapeHtml(task.url) + '</a>' : '')
+            + (task.url ? '<a class="dr-wepro-link" href="' + escapeHtml(task.url) + '" target="_blank" rel="noopener noreferrer" title="Mở task trên WePRO">' + escapeHtml(shortUrl) + ' ↗</a>' : '')
             + '</span>'
-            + '<span class="dr-wepro-pct">' + task.percent + '%</span>'
-            + '<button type="button" class="dr-wepro-addchild" data-id="' + task.id + '" title="Tạo task con cho task này">＋ con</button>'
+            + '<span class="dr-wepro-pct ' + pctCls + '" title="Tiến độ ' + pct + '%"><span class="dr-wepro-pct-bar"><i style="width:' + pct + '%"></i></span><b>' + pct + '%</b></span>'
+            + '<span class="dr-wepro-side">'
+            + (isChild ? '' : '<button type="button" class="dr-wepro-addchild" data-id="' + task.id + '" title="Tạo task con cho task này">＋ con</button>')
             + (hasChildren ? '<button type="button" class="dr-wepro-fold" aria-expanded="true" title="Thu gọn task con">▾</button>' : '')
+            + '</span>'
             + '</label>';
     }
 
@@ -787,22 +804,23 @@ Ghi chú bổ sung (nếu có):
             .filter(t => !childrenOf.has(t.id) && !(t.parent_id && indexOf.has(t.parent_id)))
             .sort(byCode);
 
+        const inReport = weproInReportIds();
         let html = '';
         if (parents.length) {
-            html += '<div class="dr-wepro-group-label">Task cha và task con</div>';
+            html += '<div class="dr-wepro-group-label">Task cha và task con <span>' + parents.length + ' nhóm</span></div>';
             parents.forEach(function (parent) {
-                html += weproTaskItemHtml(parent, indexOf.get(parent.id), false, true);
+                html += weproTaskItemHtml(parent, indexOf.get(parent.id), false, true, inReport.includes(parent.id));
                 html += '<div class="dr-wepro-children">';
                 childrenOf.get(parent.id).sort(byCode).forEach(function (child) {
-                    html += weproTaskItemHtml(child, indexOf.get(child.id), true);
+                    html += weproTaskItemHtml(child, indexOf.get(child.id), true, false, inReport.includes(child.id));
                 });
                 html += '</div>';
             });
         }
         if (rest.length) {
-            html += '<div class="dr-wepro-group-label">Task khác (' + rest.length + ')</div>';
+            html += '<div class="dr-wepro-group-label">Task lẻ <span>' + rest.length + '</span></div>';
             rest.forEach(function (task) {
-                html += weproTaskItemHtml(task, indexOf.get(task.id), false);
+                html += weproTaskItemHtml(task, indexOf.get(task.id), false, false, inReport.includes(task.id));
             });
         }
         return html;
@@ -821,12 +839,14 @@ Ghi chú bổ sung (nếu có):
         $('#weproPickList').html(weproTaskListHtml(tasks));
         $('#weproPickTools').removeClass('hidden');
         Swal.getConfirmButton().disabled = false;
+        weproSyncPickCount();
         if (weproPickerRestore) {
             const r = weproPickerRestore;
             weproPickerRestore = null;
             $('#weproPickList .dr-wepro-check').each(function () {
                 const id = (weproTasks[Number(this.value)] || {}).id;
                 this.checked = r.ticked.indexOf(id) !== -1;
+                $(this).closest('.dr-wepro-item').toggleClass('is-checked', this.checked);
             });
             $('#weproPickSearch').val(r.needle || '').trigger('input');
             if (r.highlight && r.highlight.length) {
@@ -871,14 +891,16 @@ Ghi chú bổ sung (nếu có):
         weproLoadInto(true);
     });
 
-    $(document).on('input', '#weproPickSearch', function () {
-        const needle = $(this).val().trim().toLowerCase();
+    function weproApplyFilter() {
+        const needle = ($('#weproPickSearch').val() || '').trim().toLowerCase();
+        const status = $('#weproPickStatus .is-active').data('status') || 'all';
         const $items = $('#weproPickList .dr-wepro-item');
         $items.each(function () {
             // A ticked task stays visible so a filter never hides the current selection.
             const ticked = $(this).find('.dr-wepro-check').prop('checked');
-            $(this).toggleClass('hidden', !ticked && needle !== ''
-                && $(this).text().toLowerCase().indexOf(needle) === -1);
+            const textMiss = needle !== '' && $(this).text().toLowerCase().indexOf(needle) === -1;
+            const statusMiss = status !== 'all' && $(this).data('status') !== status;
+            $(this).toggleClass('hidden', !ticked && (textMiss || statusMiss));
         });
         // A parent and its children stay together: a matching parent shows all its children,
         // a matching child shows its parent. Either way the group is unfolded so the hit is visible.
@@ -894,7 +916,29 @@ Ghi chú bổ sung (nếu có):
                 weproSetFolded($parent, false);
             }
         });
+        weproSyncPickCount();
+    }
+    $(document).on('input', '#weproPickSearch', weproApplyFilter);
+    $(document).on('click', '#weproPickStatus .dr-chip', function () {
+        $('#weproPickStatus .dr-chip').removeClass('is-active'); $(this).addClass('is-active');
+        weproApplyFilter();
     });
+    $(document).on('change', '#weproPickList .dr-wepro-check', function () {
+        $(this).closest('.dr-wepro-item').toggleClass('is-checked', this.checked);
+        weproSyncPickCount();
+    });
+    $(document).on('click', '#weproPickAll', function () {
+        $('#weproPickList .dr-wepro-item').not('.hidden').find('.dr-wepro-check').prop('checked', true).trigger('change');
+    });
+    $(document).on('click', '#weproPickNone', function () {
+        $('#weproPickList .dr-wepro-check:checked').prop('checked', false).trigger('change');
+    });
+    function weproSyncPickCount() {
+        const n = $('#weproPickList .dr-wepro-check:checked').length;
+        const $btn = $(Swal.getConfirmButton());
+        if ($btn.length && $('#weproPickList').length) $btn.text(n ? 'Thêm ' + n + ' task vào report' : 'Thêm vào report');
+        $('#weproPickCount').text(n ? n + ' đã chọn' : '');
+    }
 
     function weproSetFolded($parent, folded) {
         $parent.next('.dr-wepro-children').toggleClass('is-folded', folded);
@@ -917,13 +961,26 @@ Ghi chú bổ sung (nếu có):
             title: 'Chọn task từ WePRO',
             html: '<p class="dr-modal-note" id="weproPickNote">Đang tải...</p>'
                 + '<div id="weproPickTools" class="dr-wepro-tools hidden">'
-                + '<input type="text" id="weproPickSearch" class="dr-wepro-search" placeholder="Lọc theo mã hoặc tên task..." autocomplete="off">'
+                + '<div class="dr-wepro-tools-row">'
+                + '<input type="text" id="weproPickSearch" class="dr-wepro-search" placeholder="🔍 Lọc theo mã hoặc tên task..." autocomplete="off">'
                 + '<button type="button" id="weproRefreshBtn" class="dr-action" title="Tải lại từ WePRO">⟳ Làm mới</button>'
+                + '</div>'
+                + '<div class="dr-wepro-tools-row">'
+                + '<span id="weproPickStatus" class="dr-wepro-chips">'
+                + '<button type="button" class="dr-chip is-active" data-status="all">Tất cả</button>'
+                + '<button type="button" class="dr-chip st-doing" data-status="doing">Đang làm</button>'
+                + '<button type="button" class="dr-chip st-new" data-status="new">Mới</button>'
+                + '<button type="button" class="dr-chip st-hold" data-status="on_hold">Tạm hoãn</button>'
+                + '</span>'
+                + '<span class="dr-wepro-tools-right"><span id="weproPickCount" class="dr-wepro-count"></span>'
+                + '<button type="button" id="weproPickAll" class="dr-wepro-mini">Chọn hết đang hiện</button>'
+                + '<button type="button" id="weproPickNone" class="dr-wepro-mini">Bỏ chọn</button></span>'
+                + '</div>'
                 + '</div>'
                 + '<div id="weproPickList" class="dr-wepro-list"></div>',
             buttonsStyling: false,
             customClass: {
-                popup: 'dr-swal',
+                popup: 'dr-swal dr-swal-wide',
                 title: 'dr-swal-title',
                 htmlContainer: 'dr-swal-html',
                 actions: 'dr-modal-actions',
@@ -1025,6 +1082,17 @@ Ghi chú bổ sung (nếu có):
         $('#weproStatus').removeClass('hidden ok err wait off noproj').addClass(state).attr('title', title || text)
             .find('.dr-status-text').text('WePRO: ' + text);
     }
+    // WePRO buttons and the per-task timelog line only show when this project can actually call WePRO.
+    function setWeproFeatures(usable) {
+        $('body').toggleClass('dr-wepro-off', !usable);
+        $('#wepro-pick-task, #wepro-create-task').toggleClass('hidden', !usable);
+        syncWeproButtons();
+    }
+    function syncWeproButtons() {
+        const any = $('#tasks-today-list .dr-taskrow').toArray().some(el => $(el).data('weproId'));
+        $('#wepro-log-bulk').toggleClass('hidden', !any || $('body').hasClass('dr-wepro-off'));
+    }
+    new MutationObserver(syncWeproButtons).observe(document.getElementById('tasks-today-list'), { childList: true, subtree: true });
     // Checked per project: the login is shared, the WePRO Project ID is not.
     function checkWeproStatus() {
         const project = $('#project').val() || '';
@@ -1032,12 +1100,13 @@ Ghi chú bổ sung (nếu có):
         return $.ajax({ url: 'wepro-timelog.php', method: 'POST', dataType: 'json', data: { csrf_token: weproCsrf(), action: 'ping', project } })
             .done(function (res) {
                 weproStatusLast = res || null;
+                setWeproFeatures(!!(res && res.success));
                 if (res && res.disabled) { setWeproStatus('off', 'tắt', 'WePRO đang tắt trong Thiết lập. Bấm để xem.'); return; }
                 if (res && res.success) { setWeproStatus('ok', project, 'Đã kết nối, project ' + project + ' có WePRO ID ' + res.info.project_id); return; }
                 if (res && res.login_ok && !res.project_ok) { setWeproStatus('noproj', project + ' thiếu ID', res.message); return; }
                 setWeproStatus('err', 'lỗi', (res && res.message) || 'WePRO chưa kết nối. Bấm để xem chi tiết.');
             })
-            .fail(function () { weproStatusLast = null; setWeproStatus('err', 'lỗi', 'Không gọi được máy chủ. Bấm để xem chi tiết.'); });
+            .fail(function () { weproStatusLast = null; setWeproFeatures(false); setWeproStatus('err', 'lỗi', 'Không gọi được máy chủ. Bấm để xem chi tiết.'); });
     }
     $('#project').on('change', function () { checkWeproStatus(); });
 
@@ -1138,34 +1207,48 @@ Ghi chú bổ sung (nếu có):
             if (!children.has(t.parent_id)) children.set(t.parent_id, []);
             children.get(t.parent_id).push(t);
         });
-        const out = [];
-        tasks.filter(t => !t.parent_id).sort(byCode).forEach(function (p) {
-            out.push({ id: p.id, code: p.short_code, title: p.title, child: false });
-            (children.get(p.id) || []).forEach(c => out.push({ id: c.id, code: c.short_code, title: c.title, child: true }));
-        });
-        return out;
+        // Only root tasks can be parents: WePRO nests one level, so children never get children.
+        return tasks.filter(t => !t.parent_id).sort(byCode).map(p => ({ id: p.id, code: p.short_code, title: p.title, child: false, children: (children.get(p.id) || []).length }));
     }
 
+    // Status / sprint options arrive with the WePRO form; rows rendered before that get filled in later.
+    let wcFormOpts = { statuses: [], sprints: [] };
+    function wcStatusOptions(selected) {
+        const has = selected !== undefined && selected !== null && selected !== '';
+        return wcFormOpts.statuses.map(o => '<option value="' + escapeHtml(o.value) + '"' + (has ? (String(o.value) === String(selected) ? ' selected' : '') : (/Coding/i.test(o.label) ? ' selected' : '')) + '>' + escapeHtml(o.label) + '</option>').join('');
+    }
+    function wcSprintOptions(selected) {
+        return '<option value="">— Sprint —</option>' + wcFormOpts.sprints.map(o => '<option value="' + escapeHtml(o.value) + '"' + (String(o.value) === String(selected || '') ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>').join('');
+    }
     function weproRepeaterRowHtml(item) {
         item = item || {};
+        const today = dateToValue(new Date());
         return '<div class="dr-wc-row">'
+            + '<div class="dr-wc-row-l1">'
             + '<input type="text" class="dr-wc-row-vn" placeholder="Tên task (VN) *" value="' + escapeHtml(item.heading || '') + '">'
             + '<input type="text" class="dr-wc-row-en" placeholder="Tên EN" value="' + escapeHtml(item.en_name || '') + '">'
-            + '<input type="number" class="dr-wc-row-pt" min="0" step="1" value="' + (item.storypoint || 1) + '" title="Story point">'
-            + '<input type="date" class="dr-wc-row-start" value="' + escapeHtml(item.start_date || dateToValue(new Date())) + '" title="Bắt đầu">'
-            + '<input type="date" class="dr-wc-row-due" value="' + escapeHtml(item.due_date || dateToValue(new Date())) + '" title="Hạn">'
-            + '<button type="button" class="dr-wc-row-del" title="Xóa dòng">×</button>'
+            + '<span class="dr-wc-row-btns"><button type="button" class="dr-wc-row-desc-toggle" title="Mô tả task">✎</button><button type="button" class="dr-wc-row-del" title="Xóa dòng">×</button></span>'
+            + '</div>'
+            + '<div class="dr-wc-row-l2">'
+            + '<label><span>Point</span><input type="number" class="dr-wc-row-pt" min="0" step="1" value="' + (item.storypoint || 1) + '"></label>'
+            + '<label><span>Est (h)</span><input type="number" class="dr-wc-row-est" min="0" step="0.5" value="' + (item.estimate_hours || 0) + '"></label>'
+            + '<label><span>Bắt đầu</span><input type="date" class="dr-wc-row-start" value="' + escapeHtml(item.start_date || today) + '"></label>'
+            + '<label><span>Hạn</span><input type="date" class="dr-wc-row-due" value="' + escapeHtml(item.due_date || today) + '"></label>'
+            + '<label><span>Trạng thái</span><select class="dr-wc-row-status">' + wcStatusOptions(item.status) + '</select></label>'
+            + '<label><span>Sprint</span><select class="dr-wc-row-sprint">' + wcSprintOptions(item.sprint_id) + '</select></label>'
+            + '</div>'
+            + '<textarea class="dr-wc-row-desc' + (item.description ? '' : ' hidden') + '" rows="2" placeholder="Mô tả task (tùy chọn)">' + escapeHtml(item.description || '') + '</textarea>'
             + '</div>';
     }
 
     // Paste format, one task per line: Tên VN | Tên EN | point | bắt đầu | hạn
     // Lines starting with # are comments; a leading "- " or "1. " is tolerated.
-    const WC_PASTE_FORMAT = 'Tên VN | Tên EN | story point | ngày bắt đầu | ngày hạn';
+    const WC_PASTE_FORMAT = 'Tên VN | Tên EN | story point | ngày bắt đầu | ngày hạn | ước lượng giờ | mô tả (tùy chọn)';
     function weproParsePaste(text) {
         const dateOk = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
         return String(text || '').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(function (line) {
             const parts = line.replace(/^(?:[-*•]|\d+[.)])\s+/, '').split('|').map(x => x.trim());
-            return { heading: parts[0] || '', en_name: parts[1] || '', storypoint: Number(parts[2]) > 0 ? Number(parts[2]) : 1, start_date: dateOk(parts[3] || ''), due_date: dateOk(parts[4] || '') };
+            return { heading: parts[0] || '', en_name: parts[1] || '', storypoint: Number(parts[2]) > 0 ? Number(parts[2]) : 1, start_date: dateOk(parts[3] || ''), due_date: dateOk(parts[4] || ''), estimate_hours: Number(parts[5]) >= 0 ? Number(parts[5]) || 0 : 0, description: parts.slice(6).join(' | ').trim() };
         }).filter(it => it.heading);
     }
     function weproAiTaskPrompt() {
@@ -1178,10 +1261,12 @@ Ghi chú bổ sung (nếu có):
             + '- Tên EN: dịch sang tiếng Anh cùng tiền tố; để trống nếu không cần.\n'
             + '- story point: số nguyên 1-8 theo độ phức tạp.\n'
             + '- ngày: định dạng YYYY-MM-DD, hôm nay là ' + today + '; các task nối tiếp nhau, bỏ qua thứ 7 và chủ nhật.\n'
-            + '- Mỗi dòng một task, ngăn cách bằng dấu |, giữ đúng 5 cột kể cả khi để trống.\n'
+            + '- ước lượng giờ: số giờ dự kiến, bước 0.5, ví dụ 1.5.\n'
+            + '- mô tả: một câu nêu rõ cần làm gì, có thể để trống.\n'
+            + '- Mỗi dòng một task, ngăn cách bằng dấu |, giữ đúng 7 cột kể cả khi để trống.\n'
             + 'Ví dụ:\n'
-            + '[Backoffice] Sửa màn hình đơn hàng | [Backoffice] Fix order screen | 2 | ' + today + ' | ' + today + '\n'
-            + '[API] Thêm filter theo trạng thái | [API] Add status filter | 1 | ' + today + ' | ' + today + '\n\n'
+            + '[Backoffice] Sửa màn hình đơn hàng | [Backoffice] Fix order screen | 2 | ' + today + ' | ' + today + ' | 3 | Sửa lỗi hiển thị tổng tiền khi có giảm giá\n'
+            + '[API] Thêm filter theo trạng thái | [API] Add status filter | 1 | ' + today + ' | ' + today + ' | 1.5 |\n\n'
             + 'Công việc cần chia:\n';
     }
 
@@ -1195,11 +1280,11 @@ Ghi chú bổ sung (nếu có):
             if ($('#wcMode').val() === 'bulk') {
                 return $('#wcRows .dr-wc-row').map(function () {
                     const heading = $(this).find('.dr-wc-row-vn').val().trim();
-                    return heading ? { heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1, start_date: $(this).find('.dr-wc-row-start').val() || '', due_date: $(this).find('.dr-wc-row-due').val() || '' } : null;
+                    return heading ? { heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1, start_date: $(this).find('.dr-wc-row-start').val() || '', due_date: $(this).find('.dr-wc-row-due').val() || '', estimate_hours: Number($(this).find('.dr-wc-row-est').val()) || 0, status: $(this).find('.dr-wc-row-status').val() || '', sprint_id: $(this).find('.dr-wc-row-sprint').val() || '', description: $(this).find('.dr-wc-row-desc').val().trim() } : null;
                 }).get();
             }
             const heading = $('#wcHeading').val().trim();
-            return heading ? [{ heading, en_name: $('#wcEn').val().trim(), storypoint: Number($('#wcPoint').val()) || 1, estimate_hours: Number($('#wcEstimate').val()) || 0 }] : [];
+            return heading ? [{ heading, en_name: $('#wcEn').val().trim(), storypoint: Number($('#wcPoint').val()) || 1, estimate_hours: Number($('#wcEstimate').val()) || 0, description: $('#wcDesc').val().trim() }] : [];
         }
         function updateCount() {
             const n = collectItems().length;
@@ -1216,7 +1301,7 @@ Ghi chú bổ sung (nếu có):
             needle = String(needle || '').toLowerCase();
             const rows = entries.filter(e => !needle || (e.code + ' ' + e.title).toLowerCase().indexOf(needle) !== -1).slice(0, 60);
             let html = '<button type="button" class="dr-wc-popt" data-id="0">— Không có task cha (task gốc) —</button>';
-            html += rows.map(e => '<button type="button" class="dr-wc-popt' + (e.child ? ' is-child' : '') + '" data-id="' + e.id + '"><b>' + escapeHtml(e.code) + '</b> ' + escapeHtml(e.title) + '</button>').join('');
+            html += rows.map(e => '<button type="button" class="dr-wc-popt" data-id="' + e.id + '"><b>' + escapeHtml(e.code) + '</b> ' + escapeHtml(e.title) + (e.children ? ' <small>· ' + e.children + ' con</small>' : '') + '</button>').join('');
             if (!rows.length) html += '<div class="dr-wc-pempty">Không có task khớp</div>';
             $('#wcParentList').html(html).prop('hidden', false);
         }
@@ -1224,35 +1309,35 @@ Ghi chú bổ sung (nếu có):
             title: 'Tạo task WePRO',
             html: '<p class="dr-modal-note" id="wcNote">Đang lấy form từ WePRO...</p>'
                 + '<div id="wcBody" class="dr-wc hidden">'
+                + '<div class="dr-wc-field dr-wc-parent"><span>Task cha</span>'
+                + '<button type="button" id="wcParentPicked" class="dr-wc-pbtn">Không có task cha (task gốc)</button>'
+                + '<input type="hidden" id="wcParent" value="0">'
+                + '<div id="wcParentBox" class="dr-wc-pbox" hidden><input type="text" id="wcParentSearch" placeholder="Gõ mã hoặc tên task để tìm..." autocomplete="off"><div id="wcParentList" class="dr-wc-plist" hidden></div></div>'
+                + '</div>'
                 + '<div class="dr-wc-tabs"><button type="button" class="dr-chip is-active" data-mode="single">Một task</button><button type="button" class="dr-chip" data-mode="bulk">Nhiều task</button><input type="hidden" id="wcMode" value="single"></div>'
                 + '<div class="dr-wc-pane" data-pane="single">'
                 + '<label class="dr-wc-field"><span>Tên task (VN) *</span><input type="text" id="wcHeading" placeholder="VD: [Backoffice] Sửa màn hình đơn hàng"></label>'
                 + '<label class="dr-wc-field"><span>Tên EN (tùy chọn)</span><input type="text" id="wcEn" placeholder="VD: [Backoffice] Fix order screen"></label>'
                 + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Story point</span><input type="number" id="wcPoint" min="0" step="1" value="1"></label>'
                 + '<label class="dr-wc-field"><span>Ước lượng (giờ)</span><input type="number" id="wcEstimate" min="0" step="1" value="0"></label></div>'
+                + '<label class="dr-wc-field"><span>Mô tả (tùy chọn)</span><textarea id="wcDesc" rows="3" placeholder="Cần làm gì, lưu ý gì..."></textarea></label>'
                 + '</div>'
                 + '<div class="dr-wc-pane hidden" data-pane="bulk">'
                 + '<details class="dr-wc-paste"><summary>📋 Dán danh sách từ AI / bảng</summary>'
                 + '<textarea id="wcPaste" rows="5" placeholder="' + escapeHtml(WC_PASTE_FORMAT) + '\n[Backoffice] Sửa màn hình đơn hàng | [Backoffice] Fix order screen | 2 | 2026-10-15 | 2026-10-16"></textarea>'
                 + '<div class="dr-wc-paste-foot"><button type="button" id="wcPasteApply" class="dr-chip">⬇ Đổ vào bảng</button><button type="button" id="wcCopyPrompt" class="dr-chip">✦ Copy prompt cho AI</button><span class="dr-wc-hint" id="wcPasteCount"></span></div>'
                 + '</details>'
-                + '<div class="dr-wc-rows-head"><span>Tên task (VN) *</span><span>Tên EN</span><span>Point</span><span>Bắt đầu</span><span>Hạn</span><span></span></div>'
                 + '<div id="wcRows">' + weproRepeaterRowHtml() + weproRepeaterRowHtml() + '</div>'
                 + '<div class="dr-wc-rows-foot"><button type="button" id="wcAddRow" class="dr-chip">＋ Thêm dòng</button><span class="dr-wc-hint" id="wcBulkCount">Điền tên VN cho từng dòng, dòng trống bị bỏ qua</span></div>'
                 + '</div>'
-                + '<div class="dr-wc-field dr-wc-parent"><span>Task cha</span>'
-                + '<button type="button" id="wcParentPicked" class="dr-wc-pbtn">Không có task cha (task gốc)</button>'
-                + '<input type="hidden" id="wcParent" value="0">'
-                + '<div id="wcParentBox" class="dr-wc-pbox" hidden><input type="text" id="wcParentSearch" placeholder="Gõ mã hoặc tên task để tìm..." autocomplete="off"><div id="wcParentList" class="dr-wc-plist" hidden></div></div>'
-                + '</div>'
-                + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Trạng thái</span><select id="wcStatus"></select></label>'
+                + '<div class="dr-wc-grid" id="wcCommonMeta"><label class="dr-wc-field"><span>Trạng thái</span><select id="wcStatus"></select></label>'
                 + '<label class="dr-wc-field"><span>Sprint</span><select id="wcSprint"><option value="">— Không —</option></select></label></div>'
                 + '<div class="dr-wc-grid" id="wcCommonDates"><label class="dr-wc-field"><span>Bắt đầu</span><input type="date" id="wcStart" data-allow-custom="true" value="' + today + '"></label>'
                 + '<label class="dr-wc-field"><span>Hạn</span><input type="date" id="wcDue" data-allow-custom="true" value="' + today + '"></label></div>'
                 + (opts.returnToPicker ? '<p class="dr-wc-hint">Tạo xong sẽ quay lại danh sách Chọn task, task mới được tick sẵn.</p>' : '<label class="dr-wc-check"><input type="checkbox" id="wcAddToReport" checked> Thêm task vừa tạo vào report hôm nay</label>')
                 + '</div>',
             buttonsStyling: false,
-            customClass: WEPRO_SWAL_CLASS,
+            customClass: $.extend({}, WEPRO_SWAL_CLASS, { popup: 'dr-swal dr-swal-wide' }),
             showCancelButton: true,
             confirmButtonText: 'Tạo task',
             cancelButtonText: opts.returnToPicker ? '← Về danh sách' : 'Hủy',
@@ -1264,7 +1349,7 @@ Ghi chú bổ sung (nếu có):
                     $('.dr-wc-tabs .dr-chip').removeClass('is-active'); $(this).addClass('is-active');
                     $('#wcMode').val(mode);
                     $('.dr-wc-pane').addClass('hidden').filter('[data-pane="' + mode + '"]').removeClass('hidden');
-                    $('#wcCommonDates').toggleClass('hidden', mode === 'bulk');
+                    $('#wcCommonDates, #wcCommonMeta').toggleClass('hidden', mode === 'bulk');
                     updateCount();
                 });
                 $(document).on('input.wc', '#wcHeading, #wcRows input', updateCount);
@@ -1299,6 +1384,10 @@ Ghi chú bổ sung (nếu có):
                         }
                     });
                 });
+                $(document).on('click.wc', '.dr-wc-row-desc-toggle', function () {
+                    const $ta = $(this).closest('.dr-wc-row').find('.dr-wc-row-desc').toggleClass('hidden');
+                    if (!$ta.hasClass('hidden')) $ta.trigger('focus');
+                });
                 $(document).on('click.wc', '.dr-wc-row-del', function () {
                     if ($('#wcRows .dr-wc-row').length > 1) $(this).closest('.dr-wc-row').remove(); else $(this).closest('.dr-wc-row').find('input[type=text]').val('');
                     updateCount();
@@ -1322,8 +1411,11 @@ Ghi chú bổ sung (nếu có):
                     if (!res || !res.success) { $('#wcNote').text((res && res.message) || 'Không lấy được form WePRO.'); return; }
                     form = res;
                     entries = weproParentEntries(parents || []);
-                    $('#wcStatus').html(res.statuses.map(o => '<option value="' + escapeHtml(o.value) + '"' + (/Coding/i.test(o.label) ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>').join(''));
+                    wcFormOpts = { statuses: res.statuses || [], sprints: res.sprints || [] };
+                    $('#wcStatus').html(wcStatusOptions());
                     $('#wcSprint').append(res.sprints.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join(''));
+                    $('#wcRows .dr-wc-row-status').each(function () { $(this).html(wcStatusOptions($(this).val())); });
+                    $('#wcRows .dr-wc-row-sprint').each(function () { $(this).html(wcSprintOptions($(this).val())); });
                     if (opts.parentId) setParent(Number(opts.parentId));
                     $('#wcNote').text('Tạo trong project ' + (res.project_label || $('#project').val()) + '. Người làm: bạn.');
                     $('#wcBody').removeClass('hidden');
@@ -1386,6 +1478,9 @@ Ghi chú bổ sung (nếu có):
             data['tasks[' + i + '][en_name]'] = it.en_name || '';
             data['tasks[' + i + '][storypoint]'] = it.storypoint || 1;
             data['tasks[' + i + '][estimate_hours]'] = it.estimate_hours || 0;
+            if (it.description) data['tasks[' + i + '][description]'] = it.description;
+            if (it.status !== undefined && it.status !== '') data['tasks[' + i + '][status]'] = it.status;
+            if (it.sprint_id) data['tasks[' + i + '][sprint_id]'] = it.sprint_id;
             if (it.start_date) data['tasks[' + i + '][start_date]'] = it.start_date;
             if (it.due_date) data['tasks[' + i + '][due_date]'] = it.due_date;
         });

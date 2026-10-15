@@ -166,6 +166,15 @@ foreach (array_values($items) as $i => $item) {
         continue;
     }
     $en = trim((string)($item['en_name'] ?? ''));
+    // WePRO stores a rich-text description; plain text goes in as escaped paragraphs.
+    $descText = trim((string)($item['description'] ?? ''));
+    $description = $descText === ''
+        ? '<p><br></p>'
+        : implode('', array_map(fn ($line) => '<p>' . htmlspecialchars($line, ENT_QUOTES, 'UTF-8') . '</p>', preg_split('/\r\n|\r|\n/', $descText)));
+    // Hours may be fractional (1.5): WePRO wants hours + minutes as two fields.
+    $estTotal = max(0, (float)($item['estimate_hours'] ?? 0));
+    $estHours = (int)floor($estTotal);
+    $estMinutes = (int)round(($estTotal - $estHours) * 60);
     // A row may carry its own dates; otherwise the common ones apply.
     $startDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($item['start_date'] ?? '')) ? $item['start_date'] : $common['start_date'];
     $dueDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($item['due_date'] ?? '')) ? $item['due_date'] : $common['due_date'];
@@ -188,14 +197,14 @@ foreach (array_values($items) as $i => $item) {
         'start_date' => $startDate,
         'due_date' => $dueDate,
         'user_id[0]' => (string)$common['user_id'],
-        'description' => '<p><br></p>',
+        'description' => $description,
         'note' => '<p><br></p>',
-        'client_id' => '', 'milestone_id' => '', 'sprint_id' => $common['sprint_id'], 'pcl' => '',
+        'client_id' => '', 'milestone_id' => '', 'sprint_id' => (string)($item['sprint_id'] ?? '') !== '' ? (string)$item['sprint_id'] : $common['sprint_id'], 'pcl' => '',
         'tester_date' => '', 'client_test_date' => '', 'tester_tested_date' => '', 'client_tested_date' => '',
-        'estimate_hours' => (string)max(0, (int)($item['estimate_hours'] ?? 0)),
-        'estimate_minutes' => '0',
+        'estimate_hours' => (string)$estHours,
+        'estimate_minutes' => (string)$estMinutes,
         'mention_user_ids' => '',
-        'custom_fields_data[status_2]' => $common['status'],
+        'custom_fields_data[status_2]' => (string)($item['status'] ?? '') !== '' ? (string)$item['status'] : $common['status'],
     ];
     [$body, $code, $err] = weproRequest(
         $baseUrl . '/account/tasks?task_template_id=&taskId=',
