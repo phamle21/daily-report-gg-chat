@@ -190,6 +190,8 @@ foreach ($data['data'] as $row) {
         'start_date' => trim((string)($row['create_on'] ?? '')),
         'due_date' => trim((string)($row['due_on'] ?? '')),
         'subtask_count' => (int)($row['subtasks_count'] ?? 0),
+        'estimate_hours' => round(((int)($row['total_estimate_minutes'] ?? 0)) / 60, 1),
+        'logged_hours' => round(((float)($row['total_log_time'] ?? 0)) / 60, 1),
         'parent_id' => 0,
         'status' => '',
         'url' => $baseUrl . '/account/tasks/' . (int)($row['id'] ?? 0),

@@ -352,6 +352,10 @@
         .dr-wc-row-del { height:30px; width:28px; border:1px solid #e4e4e7; border-radius:7px; background:#fff; color:#71717a; font-size:15px; line-height:1; cursor:pointer; }
         .dr-wc-row-del:hover { border-color:#fecdd3; background:#fff1f2; color:#e11d48; }
         .dr-wc-rows-foot { display:flex; align-items:center; gap:10px; margin-top:8px; }
+        .dr-wc-parent { border:1px solid #c7d2fe; border-radius:10px; background:#eef2ff; padding:10px 12px; }
+        .dr-wc-parent > span { color:#3730a3; font-size:13px; }
+        .dr-wc-parent > span small { font-weight:500; color:#6366f1; }
+        .dr-wc-parent.is-set { border-color:#4f46e5; box-shadow:0 0 0 2px rgba(79,70,229,.18); }
         .dr-wc-pbtn { width:100%; text-align:left; border:1px solid #d4d4d8; border-radius:8px; background:#fff; padding:8px 10px; font-size:13px; color:#71717a; cursor:pointer; }
         .dr-wc-pbtn.is-set { color:#18181b; font-weight:600; }
         .dr-wc-pbtn:hover { border-color:#a1a1aa; }
@@ -363,11 +367,16 @@
         .dr-wc-popt b { color:#71717a; font-weight:650; margin-right:4px; }
         .dr-wc-popt.is-child { padding-left:24px; }
         .dr-wc-popt:hover { background:#f4f4f5; }
+        .dr-wc-popt.is-active { background:#18181b; color:#fff; }
+        .dr-wc-popt.is-active b, .dr-wc-popt.is-active small { color:#d4d4d8; }
         .dr-wc-pempty { padding:8px; font-size:12.5px; color:#a1a1aa; }
         .dr-wepro-addchild { flex-shrink:0; height:22px; border:1px solid #c7d2fe; border-radius:6px; background:#eef2ff; padding:0 7px; color:#4338ca; font-size:10.5px; font-weight:700; cursor:pointer; }
         .dr-wepro-addchild:hover { background:#e0e7ff; }
         /* Popup overlay: darker and blurred so the page behind reads as inactive */
         .swal2-container.swal2-backdrop-show, .swal2-container.swal2-noanimation { background:rgba(24,24,27,.62) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+        /* Toasts carry swal2-backdrop-show too; without this they get the dim overlay above. */
+        .swal2-container.swal2-no-backdrop { background:transparent !important; backdrop-filter:none; -webkit-backdrop-filter:none; pointer-events:none; }
+        .swal2-container.swal2-no-backdrop .swal2-toast { pointer-events:auto; }
         /* ===== WePRO task picker ===== */
         .dr-swal-wide { width:min(94vw, 860px) !important; }
         .dr-wepro-tools { position:sticky; top:0; z-index:2; display:flex; flex-direction:column; gap:8px; margin-bottom:8px; padding-bottom:8px; background:#fff; border-bottom:1px solid #e4e4e7; }
@@ -410,6 +419,8 @@
         .dr-wlog-total { margin:6px 0 0; text-align:right; font-size:12.5px; font-weight:700; color:#0284c7; }
         .dr-wlog-badge { display:inline-flex; align-items:center; height:34px; padding:0 10px; border-radius:8px; background:#e0f2fe; color:#0369a1; font-size:12px; font-weight:650; }
         .dr-wlog-badge.hidden { display:none; }
+        a.dr-wlog-badge { text-decoration:none; cursor:pointer; }
+        a.dr-wlog-badge:hover { background:#bae6fd; }
         .dr-gf-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
         .dr-gf-preset.is-active { border-style:solid; border-color:#18181b; background:#18181b; color:#fff; }
         .dr-gf-range { display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:left; }

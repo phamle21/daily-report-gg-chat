@@ -132,6 +132,164 @@ if ($action === 'form') {
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
+// Editing existing tasks goes through WePRO's inline-edit endpoint, which takes any subset
+// of fields. `tasks[i][id]` plus the fields to change; a field left out stays untouched.
+if ($action === 'update') {
+    $items = $_POST['tasks'] ?? [];
+    if (!is_array($items) || !$items) {
+        @unlink($jar);
+        fail('Chưa có task nào để sửa.');
+    }
+    $results = [];
+    foreach (array_values($items) as $item) {
+        $id = (int)($item['id'] ?? 0);
+        if ($id <= 0) {
+            continue;
+        }
+        $fields = [];
+        if (isset($item['heading'])) {
+            $fields['heading'] = trim((string)$item['heading']);
+            if ($fields['heading'] === '') {
+                $results[] = ['id' => $id, 'success' => false, 'message' => 'Tên task không được trống'];
+                continue;
+            }
+        }
+        if (isset($item['en_name'])) {
+            $fields['en_name'] = trim((string)$item['en_name']);
+        }
+        if (isset($item['description'])) {
+            $descText = trim((string)$item['description']);
+            $fields['description'] = $descText === ''
+                ? '<p><br></p>'
+                : implode('', array_map(fn ($line) => '<p>' . htmlspecialchars($line, ENT_QUOTES, 'UTF-8') . '</p>', preg_split('/\r\n|\r|\n/', $descText)));
+        }
+        if (isset($item['task_percent']) && $item['task_percent'] !== '') {
+            $fields['task_percent'] = (string)max(0, min(100, (int)$item['task_percent']));
+        }
+        // Status is a board column; the gantt feed reports the same four as new/doing/on_hold/completed.
+        // Completing goes through change-status with the AI-usage survey WePRO demands; the other
+        // three statuses are plain board columns.
+        $complete = null;
+        if (isset($item['status']) && $item['status'] !== '') {
+            $columns = ['new' => '9', 'doing' => '10', 'on_hold' => '6'];
+            if ($item['status'] === 'completed') {
+                $pct = (string)($item['ai_percentage'] ?? '');
+                $purposes = array_values(array_filter(array_map('strval', (array)($item['ai_purpose'] ?? []))));
+                if (!in_array($pct, ['0', '20', '40', '80', '100'], true) || !$purposes) {
+                    $results[] = ['id' => $id, 'success' => false, 'message' => 'Hoàn thành cần khảo sát AI: mức % và ít nhất một mục đích'];
+                    continue;
+                }
+                $complete = ['taskId' => (string)$id, 'status' => 'completed', 'percentage' => $pct, 'notes' => trim((string)($item['ai_notes'] ?? '')), '_token' => $token];
+                foreach ($purposes as $k => $pu) {
+                    $complete['purpose[' . $k . ']'] = $pu;
+                }
+            } elseif (isset($columns[$item['status']])) {
+                $fields['board_column_id'] = $columns[$item['status']];
+            } else {
+                $results[] = ['id' => $id, 'success' => false, 'message' => 'Trạng thái không hợp lệ'];
+                continue;
+            }
+        }
+        if (isset($item['parent_id'])) {
+            $parentId = (int)$item['parent_id'];
+            if ($parentId === $id) {
+                $results[] = ['id' => $id, 'success' => false, 'message' => 'Task không thể là cha của chính nó'];
+                continue;
+            }
+            $fields['parent_id'] = $parentId > 0 ? (string)$parentId : '';
+        }
+        if (!$fields && !$complete) {
+            $results[] = ['id' => $id, 'success' => false, 'message' => 'Không có gì để sửa'];
+            continue;
+        }
+        if ($complete) {
+            [$body, $code, $err] = weproRequest(
+                $baseUrl . '/account/tasks/change-status',
+                [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => $complete,
+                    CURLOPT_HTTPHEADER => [
+                        'Accept: application/json',
+                        'X-Requested-With: XMLHttpRequest',
+                        'X-CSRF-TOKEN: ' . $token,
+                        'Origin: ' . $baseUrl,
+                        'Referer: ' . $baseUrl . '/account/tasks/' . $id,
+                    ],
+                ],
+                $wepro, $cookie, $jar
+            );
+            $res = $body !== false ? json_decode($body, true) : null;
+            if (!is_array($res) || ($res['status'] ?? '') !== 'success') {
+                $msg = $body === false ? $err : (is_array($res) ? (string)($res['message'] ?? '') : 'HTTP ' . $code);
+                $results[] = ['id' => $id, 'success' => false, 'message' => 'Hoàn thành thất bại: ' . (trim($msg) ?: 'WePRO từ chối')];
+                continue;
+            }
+            if (!$fields) {
+                $results[] = ['id' => $id, 'success' => true, 'fields' => ['status']];
+                continue;
+            }
+        }
+        [$body, $code, $err] = weproRequest(
+            $baseUrl . '/account/tasks/update-fields/' . $id,
+            [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => ['_token' => $token] + $fields,
+                CURLOPT_HTTPHEADER => [
+                    'Accept: application/json, text/javascript, */*; q=0.01',
+                    'X-Requested-With: XMLHttpRequest',
+                    'X-CSRF-TOKEN: ' . $token,
+                    'Origin: ' . $baseUrl,
+                    'Referer: ' . $baseUrl . '/account/tasks/' . $id,
+                ],
+            ],
+            $wepro, $cookie, $jar
+        );
+        $res = $body !== false ? json_decode($body, true) : null;
+        if (is_array($res) && ($res['status'] ?? '') === 'success') {
+            $results[] = ['id' => $id, 'success' => true, 'fields' => array_merge(array_keys($fields), $complete ? ['status'] : [])];
+            continue;
+        }
+        $msg = $body === false ? $err : (is_array($res) ? (string)($res['message'] ?? '') : 'HTTP ' . $code);
+        if (is_array($res) && !empty($res['errors']) && is_array($res['errors'])) {
+            $msg .= ' ' . implode(' ', array_map(fn ($e) => implode(' ', (array)$e), $res['errors']));
+        }
+        $results[] = ['id' => $id, 'success' => false, 'message' => trim($msg) ?: 'WePRO từ chối'];
+    }
+    @unlink($jar);
+    $updated = count(array_filter($results, fn ($r) => $r['success']));
+    echo json_encode(['success' => $updated > 0, 'updated' => $updated, 'total' => count($results), 'results' => $results], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+// The list has no description: the detail page does, as rich text in #taskDes-<id>.
+if ($action === 'detail') {
+    $id = (int)($_POST['task_id'] ?? 0);
+    if ($id <= 0) {
+        @unlink($jar);
+        fail('Thiếu task id.');
+    }
+    [$body, $code, $err] = weproRequest(
+        $baseUrl . '/account/tasks/' . $id,
+        [CURLOPT_HTTPHEADER => ['Accept: application/json, text/javascript, */*; q=0.01', 'X-Requested-With: XMLHttpRequest']],
+        $wepro, $cookie, $jar
+    );
+    @unlink($jar);
+    if ($body === false || $code !== 200) {
+        fail('Không lấy được chi tiết task (' . ($body === false ? $err : 'HTTP ' . $code) . ').');
+    }
+    $page = json_decode($body, true);
+    $html = is_array($page) && isset($page['html']) ? (string)$page['html'] : (string)$body;
+    unset($body);
+    $desc = '';
+    if (preg_match('/<textarea name="description" id="descriptionText-' . $id . '"[^>]*>(.*?)<\/textarea>/s', $html, $m)) {
+        $desc = preg_replace('/<\/p>\s*<p>/', "\n", trim($m[1]));
+        $desc = preg_replace('/<br\s*\/?>/i', "\n", $desc);
+        $desc = trim(html_entity_decode(strip_tags($desc), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+    $heading = preg_match('/name="heading" value="([^"]*)"/', $html, $m) ? html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') : '';
+    $en = preg_match('/name="en_name" value="([^"]*)"/', $html, $m) ? html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') : '';
+    echo json_encode(['success' => true, 'id' => $id, 'heading' => $heading, 'en_name' => $en, 'description' => $desc], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 if ($action !== 'store') {
     @unlink($jar);
     fail('Action không hợp lệ.');
