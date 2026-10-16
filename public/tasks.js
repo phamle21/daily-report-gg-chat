@@ -246,7 +246,8 @@ $(document).ready(function () {
         $('#edEn').val(current(t, 'en_name'));
         setPct(current(t, 'task_percent'), false);
         paintStatus(current(t, 'status'));
-        $('#edParent').text(parentLabel(current(t, 'parent_id'))).toggleClass('is-root', !current(t, 'parent_id'));
+        $('#edParent').val(current(t, 'parent_id') ? parentLabel(current(t, 'parent_id')) : '');
+        $('#edParentList').addClass('hidden');
         $('#edInfo').html(
             '<div><span>Ước lượng</span><b>' + (Number(t.estimate_hours) || 0) + 'h</b></div>'
             + '<div><span>Đã log</span><b>' + (Number(t.logged_hours) || 0) + 'h' + (Number(t.estimate_hours) ? ' <small>/ ' + Math.round((Number(t.logged_hours) || 0) / Number(t.estimate_hours) * 100) + '%</small>' : '') + '</b></div>'
@@ -366,13 +367,32 @@ $(document).ready(function () {
         if (!t) return;
         setStatusOn([t.id], v).then(function (ok) { if (ok) paintStatus(v); else paintStatus(current(t, 'status')); paintChanged(t); });
     });
-    $('#edParent').on('click', function () {
-        pickParent([activeId]).then(function (pid) {
-            if (pid === null) return;
-            edit('parent_id', pid);
-            render(); select(activeId);
-        });
-    });
+    // Parent combobox: type to filter root tasks, click or Enter to pick, × for none.
+    function parentCandidates(q) {
+        q = String(q || '').toLowerCase();
+        return tasks.filter(t => t.id !== activeId && !current(t, 'parent_id') && (!q || (t.short_code + ' ' + current(t, 'heading')).toLowerCase().indexOf(q) !== -1)).sort(byCode).slice(0, 40);
+    }
+    function drawParentList(q) {
+        const rows = parentCandidates(q);
+        $('#edParentList').removeClass('hidden').html(rows.length
+            ? rows.map((t, i) => '<button type="button" data-id="' + t.id + '"' + (i === 0 ? ' class="is-hot"' : '') + '><b>' + escapeHtml(t.short_code) + '</b>' + escapeHtml(current(t, 'heading')) + '</button>').join('')
+            : '<div class="tk-combo-empty">Không có task cha khớp</div>');
+    }
+    function chooseParent(pid) {
+        edit('parent_id', pid);
+        render(); select(activeId);
+    }
+    $('#edParent').on('focus input', function () { drawParentList(this.value); })
+        .on('keydown', function (e) {
+            const $items = $('#edParentList button');
+            const i = $items.index($items.filter('.is-hot'));
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); const n = e.key === 'ArrowDown' ? Math.min($items.length - 1, i + 1) : Math.max(0, i - 1); $items.removeClass('is-hot').eq(n).addClass('is-hot'); $items.eq(n)[0] && $items.eq(n)[0].scrollIntoView({ block: 'nearest' }); return; }
+            if (e.key === 'Enter') { e.preventDefault(); const $hot = $items.filter('.is-hot'); if ($hot.length) chooseParent(Number($hot.data('id'))); return; }
+            if (e.key === 'Escape') { $('#edParentList').addClass('hidden'); select(activeId); }
+        })
+        .on('blur', function () { setTimeout(function () { $('#edParentList').addClass('hidden'); const t = byId.get(activeId); if (t) $('#edParent').val(current(t, 'parent_id') ? parentLabel(current(t, 'parent_id')) : ''); }, 150); });
+    $('#edParentList').on('mousedown', 'button', function (e) { e.preventDefault(); chooseParent(Number($(this).data('id'))); });
+    $('#edParentClear').on('click', function () { if (activeId) chooseParent(0); });
     $('#edBody').on('click', '.tk-undo', function () {
         const f = $(this).closest('.tk-field').data('f');
         const t = byId.get(activeId);

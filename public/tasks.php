@@ -122,11 +122,11 @@ function e($value)
         .tk-meta-row { display:flex; gap:14px; flex-wrap:wrap; margin-top:3px; }
         .tk-meta-row em + em { padding-left:14px; border-left:1px solid #e4e4e7; }
         .tk-meta-row em { font-style:normal; font-size:11px; color:#71717a; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
-        .tk-due { display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:700; border-radius:999px; padding:2px 10px 2px 8px; border:1px solid transparent; line-height:1.4; }
-        .tk-due i { display:inline-flex; align-items:center; justify-content:center; height:14px; width:14px; border-radius:999px; color:#fff; font-style:normal; font-size:10px; font-weight:900; line-height:1; }
+        .tk-due { display:inline-flex; align-items:center; justify-content:center; gap:0; font-weight:700; border-radius:999px; padding:3px 10px 3px 9px; border:1px solid transparent; line-height:1; }
+        .tk-due i { display:inline-flex; align-items:center; justify-content:center; height:14px; width:14px; margin:0 8px; flex:none; border-radius:999px; color:#fff; font-style:normal; font-size:10px; font-weight:900; line-height:1; }
         .tk-due.late { color:#b91c1c; background:#fef2f2; border-color:#fecaca; } .tk-due.late i { background:#dc2626; }
         .tk-due.today { color:#b45309; background:#fffbeb; border-color:#fde68a; } .tk-due.today i { background:#f59e0b; }
-        .tk-due::after { font-size:10px; font-weight:600; opacity:.8; }
+        .tk-due::after { display:inline-flex; align-items:center; align-self:center; font-size:10px; font-weight:600; opacity:.8; line-height:1; }
         .tk-due.late::after { content:"quá hạn"; } .tk-due.today::after { content:"hôm nay"; }
         .tk-row.due-late { box-shadow:inset 4px 0 0 #fca5a5; }
         .tk-row.due-today { box-shadow:inset 4px 0 0 #fcd34d; }
@@ -229,6 +229,15 @@ function e($value)
         .tk-ticks button:hover { border-color:var(--tk-brand); color:var(--tk-brand); }
         .tk-stpick button.is-active { border-color:var(--tk-ink); background:var(--tk-ink); color:#fff; }
         .tk-field.is-changed .tk-stpick button.is-active { background:#f59e0b; border-color:#f59e0b; }
+        .tk-combo { position:relative; }
+        .tk-combo input { padding-right:30px; }
+        .tk-combo-clear { position:absolute; right:6px; top:7px; height:24px; width:24px; border:0; border-radius:6px; background:transparent; color:var(--tk-mute); font-size:16px; cursor:pointer; }
+        .tk-combo-clear:hover { background:var(--tk-soft); color:var(--tk-ink); }
+        .tk-combo-list { position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20; max-height:240px; overflow:auto; background:#fff; border:1px solid var(--tk-line); border-radius:9px; box-shadow:0 12px 28px rgba(24,24,27,.14); padding:4px; }
+        .tk-combo-list button { display:block; width:100%; text-align:left; border:0; border-radius:6px; background:transparent; padding:7px 9px; font-size:12.5px; color:var(--tk-ink); cursor:pointer; }
+        .tk-combo-list button b { font-family:ui-monospace, Menlo, monospace; color:var(--tk-mute); font-weight:650; margin-right:6px; }
+        .tk-combo-list button:hover, .tk-combo-list button.is-hot { background:var(--tk-brand-soft); }
+        .tk-combo-list .tk-combo-empty { padding:8px; font-size:12px; color:var(--tk-mute); }
         .tk-pbtn { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:38px; border:1px solid var(--tk-line); border-radius:8px; background:#fff; padding:7px 11px; font-size:13px; color:var(--tk-ink); text-align:left; cursor:pointer; }
         .tk-pbtn:hover { border-color:#a1a1aa; }
         .tk-pbtn.is-root { color:var(--tk-mute); }
@@ -313,7 +322,7 @@ function e($value)
                 <div class="tk-field" data-f="status"><label>Trạng thái <button type="button" class="tk-undo">↶ hoàn tác</button></label>
                     <div class="tk-ticks tk-stpick"><button type="button" data-v="new">Mới</button><button type="button" data-v="doing">Đang làm</button><button type="button" data-v="on_hold">Tạm hoãn</button><button type="button" data-v="completed">Xong</button></div>
                 </div>
-                <div class="tk-field" data-f="parent_id"><label>Task cha <button type="button" class="tk-undo">↶ hoàn tác</button></label><button type="button" id="edParent" class="tk-pbtn is-root">— task gốc —</button></div>
+                <div class="tk-field" data-f="parent_id"><label>Task cha <button type="button" class="tk-undo">↶ hoàn tác</button></label><div class="tk-combo" id="edParentBox"><input type="text" id="edParent" placeholder="Gõ mã hoặc tên task cha… (trống = task gốc)" autocomplete="off"><button type="button" class="tk-combo-clear" id="edParentClear" title="Bỏ task cha">×</button><div class="tk-combo-list hidden" id="edParentList"></div></div></div>
                 <div class="tk-field" data-f="description"><label>Mô tả <small id="edDescHint"></small><button type="button" class="tk-undo">↶ hoàn tác</button></label><textarea id="edDesc" placeholder="Mô tả task..."></textarea><div class="tk-msg hidden" id="edMsg"></div></div>
             </div>
             <div class="tk-aside-foot hidden" id="edFoot">
