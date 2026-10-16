@@ -21,11 +21,6 @@ $(document).ready(function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     $('.st-step').on('click', function () { showStep($(this).data('step')); });
-    $('.prev-step').on('click', function () { showStep($(this).data('prev')); });
-    $('.next-step').on('click', function () {
-        const next = $(this).data('next');
-        saveSettings().then(function (ok) { if (ok) showStep(next); });
-    });
     const firstRun = $('#settingsForm').data('first-run') === 1;
     let initial = '1';
     try { initial = sessionStorage.getItem(STEP_KEY) || '1'; } catch (e) { /* ignore */ }
@@ -98,7 +93,7 @@ $(document).ready(function () {
     // ===== Save =====
     function saveSettings() {
         syncDefaultSelect();
-        const $buttons = $('#settingsForm .save-step, #settingsForm .next-step').prop('disabled', true);
+        const $buttons = $('#settingsForm .save-step, #weproTestBtn').prop('disabled', true);
         return $.ajax({ url: 'save-config.php', method: 'POST', data: $('#settingsForm').serialize(), dataType: 'json' })
             .then(function (res) {
                 if (!res.success) {
@@ -110,10 +105,10 @@ $(document).ready(function () {
                 markStepDone(2, $('#projectSettingsList .project-name').filter(function () { return $(this).val().trim() !== ''; }).length > 0);
                 const weproOn = $('input[name="wepro_enabled"]').prop('checked');
                 const cookieTyped = $('textarea[name="wepro_remember_cookie"]').val().trim() !== '';
-                const cookieStored = $('textarea[name="wepro_remember_cookie"]').attr('placeholder').indexOf('đã lưu') !== -1;
+                const cookieStored = $('textarea[name="wepro_remember_cookie"]').data('stored') === 1;
                 markStepDone(3, !weproOn || cookieTyped || cookieStored);
-                if (cookieTyped) $('textarea[name="wepro_remember_cookie"]').val('').attr('placeholder', '(đã lưu, để trống nếu giữ nguyên)');
-                if ($('input[name="wepro_basic_pass"]').val() !== '') $('input[name="wepro_basic_pass"]').val('').attr('placeholder', '(đã lưu, để trống nếu giữ nguyên)');
+                if (cookieTyped) $('textarea[name="wepro_remember_cookie"]').val('').data('stored', 1).attr('placeholder', 'Để trống nếu giữ nguyên. Dán cookie mới vào đây để thay.');
+                if ($('input[name="wepro_basic_pass"]').val() !== '') $('input[name="wepro_basic_pass"]').val('').attr('placeholder', 'Để trống nếu giữ nguyên');
                 toast('success', 'Đã lưu thiết lập');
                 return true;
             }, function () {
@@ -122,33 +117,57 @@ $(document).ready(function () {
             })
             .always(function () { $buttons.prop('disabled', false); });
     }
-    $('#settingsForm').on('submit', function (e) {
-        e.preventDefault();
-        const finish = $(document.activeElement).data('finish') === 1;
-        saveSettings().then(function (ok) {
-            if (ok && finish) window.location.href = 'index.php';
-        });
+    $('#settingsForm').on('submit', function (e) { e.preventDefault(); saveSettings(); });
+
+    // ===== WePRO =====
+    $('textarea[name="wepro_remember_cookie"]').data('stored', $('textarea[name="wepro_remember_cookie"]').attr('placeholder').indexOf('giữ nguyên') !== -1 ? 1 : 0);
+    function syncWeproFields() { $('#weproFields').toggleClass('is-off', !$('input[name="wepro_enabled"]').prop('checked')); }
+    $('input[name="wepro_enabled"]').on('change', syncWeproFields); syncWeproFields();
+
+    // Whatever gets pasted (a Cookie: header, a DevTools row, the bare value), keep only remember_web_*=value.
+    $('#weproCookie').on('input', function () {
+        const raw = this.value;
+        const m = raw.match(/remember_web_[A-Za-z0-9]+\s*[=\t]\s*([^;\s]+)/);
+        if (m) {
+            const clean = m[0].replace(/\s*[=\t]\s*/, '=');
+            if (clean !== raw.trim()) { this.value = clean; $('#weproCookieHint').text('Đã lọc ra cookie ' + clean.split('=')[0] + ' từ nội dung bạn dán.'); }
+            else $('#weproCookieHint').text('Cookie hợp lệ: ' + clean.split('=')[0] + '.');
+        } else if (raw.trim() !== '') {
+            $('#weproCookieHint').text('Chưa thấy remember_web_… trong nội dung dán. Kiểm tra lại tên cookie.');
+        }
     });
 
-    // ===== WePRO test =====
+    function testRow(cls, text) { return '<div class="row ' + cls + '"><i></i><span>' + escapeHtml(text) + '</span></div>'; }
     $('#weproTestBtn').on('click', function () {
-        const $btn = $(this).prop('disabled', true);
-        const $out = $('#weproTestResult').removeClass('hidden ok err').addClass('wait').text('Đang kiểm tra, có thể mất tới 30 giây...');
-        const project = $('#defaultProjectSelect').val() || '';
-        $.ajax({ url: 'wepro-tasks.php', method: 'POST', dataType: 'json', data: { csrf_token: csrf(), project } })
-            .done(function (res) {
-                if (res && res.success) {
-                    $out.removeClass('wait').addClass('ok').text('Kết nối OK. Đọc được ' + res.tasks.length + '/' + res.total + ' task của project ' + project + '.');
-                } else {
-                    $out.removeClass('wait').addClass('err').text('Lỗi: ' + ((res && res.message) || 'không rõ'));
-                }
-            })
-            .fail(function (xhr) {
-                $out.removeClass('wait').addClass('err').text(xhr.status === 504
-                    ? 'WePRO trả dữ liệu quá lâu (504). Thử tắt "Lấy cả task con".'
-                    : 'Không gọi được máy chủ (HTTP ' + xhr.status + ').');
-            })
-            .always(function () { $btn.prop('disabled', false); });
+        const $out = $('#weproTestResult').removeClass('hidden').html(testRow('wait', 'Đang lưu thiết lập...'));
+        saveSettings().then(function (ok) {
+            if (!ok) { $out.html(testRow('err', 'Chưa lưu được, chưa kiểm tra.')); return; }
+            if (!$('input[name="wepro_enabled"]').prop('checked')) { $out.html(testRow('ok', 'Đã lưu. WePRO đang tắt nên không kiểm tra.')); return; }
+            const project = $('#defaultProjectSelect').val() || '';
+            $out.html(testRow('ok', 'Đã lưu.') + testRow('wait', 'Đang thử đăng nhập WePRO...'));
+            $.ajax({ url: 'wepro-timelog.php', method: 'POST', dataType: 'json', data: { csrf_token: csrf(), action: 'ping', project } })
+                .done(function (res) {
+                    if (!res || !res.login_ok) {
+                        $out.html(testRow('ok', 'Đã lưu.') + testRow('err', 'Đăng nhập thất bại: ' + ((res && res.message) || 'cookie hoặc Basic auth sai.')));
+                        return;
+                    }
+                    const ms = res.info && res.info.latency_ms;
+                    if (!res.project_ok) {
+                        $out.html(testRow('ok', 'Đã lưu.') + testRow('ok', 'Đăng nhập OK' + (ms ? ' (' + ms + ' ms)' : '') + '.') + testRow('err', res.message || ('Project ' + project + ' chưa có WePRO Project ID, điền ở tab Project.')));
+                        return;
+                    }
+                    $out.html(testRow('ok', 'Đã lưu.') + testRow('ok', 'Đăng nhập OK' + (ms ? ' (' + ms + ' ms)' : '') + '.') + testRow('wait', 'Đang đọc task của project ' + project + '...'));
+                    $.ajax({ url: 'wepro-tasks.php', method: 'POST', dataType: 'json', data: { csrf_token: csrf(), project } })
+                        .done(function (r2) {
+                            $out.find('.row').last().remove();
+                            $out.append(r2 && r2.success
+                                ? testRow('ok', 'Đọc được ' + r2.tasks.length + ' task của project ' + project + '. Sẵn sàng dùng.')
+                                : testRow('err', 'Đăng nhập được nhưng không đọc được task: ' + ((r2 && r2.message) || 'kiểm tra WePRO Project ID ở tab Project.')));
+                        })
+                        .fail(function (xhr) { $out.find('.row').last().remove(); $out.append(testRow('err', xhr.status === 504 ? 'WePRO trả quá lâu (504). Thử bỏ "Lấy cả task con".' : 'Không gọi được máy chủ (HTTP ' + xhr.status + ').')); });
+                })
+                .fail(function (xhr) { $out.html(testRow('ok', 'Đã lưu.') + testRow('err', 'Không gọi được máy chủ (HTTP ' + xhr.status + ').')); });
+        });
     });
 
 });

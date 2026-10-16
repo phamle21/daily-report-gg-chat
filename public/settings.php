@@ -54,6 +54,17 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
         .st-step.is-active .st-step-num { background:#18181b; color:#fff; }
         .st-step-title { display:block; font-size:13px; font-weight:700; color:#18181b; }
         .st-step-sub { display:block; font-size:11px; color:#71717a; }
+        .st-saved { margin-left:6px; border-radius:999px; background:#d1fae5; color:#065f46; padding:1px 8px; font-size:10.5px; font-weight:700; }
+        .st-howto { margin-top:8px; border:1px dashed #d4d4d8; border-radius:10px; padding:8px 12px; background:#fafafa; font-size:12.5px; color:#3f3f46; }
+        .st-howto summary { cursor:pointer; font-weight:600; }
+        .st-howto ol { margin:8px 0 0 18px; padding:0; display:flex; flex-direction:column; gap:4px; }
+        .st-howto p { margin:8px 0 0; color:#71717a; }
+        .st-test { margin-top:10px; border:1px solid #e4e4e7; border-radius:10px; padding:10px 12px; font-size:13px; display:flex; flex-direction:column; gap:6px; }
+        .st-test .row { display:flex; align-items:center; gap:8px; }
+        .st-test .row i { height:10px; width:10px; border-radius:999px; background:#d4d4d8; flex:none; }
+        .st-test .row.ok i { background:#059669; } .st-test .row.err i { background:#e11d48; } .st-test .row.wait i { background:#f59e0b; animation:drPulse 1s infinite; }
+        .st-test .row.err { color:#be123c; }
+        #weproFields.is-off { opacity:.45; pointer-events:none; }
         .st-panel { display:none; }
         .st-panel.is-active { display:block; }
         .st-card { border:1px solid #d4d4d8; border-radius:14px; background:#fff; padding:18px; box-shadow:0 1px 2px rgba(24,24,27,.08),0 10px 28px rgba(24,24,27,.10); }
@@ -96,7 +107,7 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
             <div class="flex flex-col gap-3 rounded-xl border border-zinc-300/80 bg-white/90 p-4 shadow-soft backdrop-blur sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Thiết lập</h1>
-                    <p class="mt-1 text-sm text-zinc-500"><?= $firstRun ? 'Lần đầu dùng: làm 3 bước là xong, mỗi bước chỉ vài ô.' : 'Sửa xong nhớ bấm Lưu ở cuối mỗi bước.' ?></p>
+                    <p class="mt-1 text-sm text-zinc-500"><?= $firstRun ? 'Lần đầu dùng: điền 3 tab, tab nào xong bấm Lưu tab đó.' : 'Mỗi tab có nút Lưu riêng, lưu ngay không cần qua các tab khác.' ?></p>
                 </div>
                 <a href="index.php" class="inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 shadow-button hover:bg-zinc-50">← Về trang báo cáo</a>
             </div>
@@ -156,13 +167,7 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
                         <input name="report_note" class="st-input" placeholder="VD: Đã nhập đầy đủ" value="<?= e($googleForm['report_note'] ?? '') ?>">
                     </div>
                 </div>
-                <div class="st-nav">
-                    <span></span>
-                    <div class="flex gap-2">
-                        <button type="submit" class="st-btn save-step">Lưu</button>
-                        <button type="button" class="st-btn st-btn-primary next-step" data-next="2">Lưu và tiếp →</button>
-                    </div>
-                </div>
+                <div class="st-nav"><span></span><button type="submit" class="st-btn st-btn-primary save-step">Lưu</button></div>
             </section>
 
             <!-- Step 2 -->
@@ -216,21 +221,16 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
                         </select>
                     </div>
                 </div>
-                <div class="st-nav">
-                    <button type="button" class="st-btn prev-step" data-prev="1">← Quay lại</button>
-                    <div class="flex gap-2">
-                        <button type="submit" class="st-btn save-step">Lưu</button>
-                        <button type="button" class="st-btn st-btn-primary next-step" data-next="3">Lưu và tiếp →</button>
-                    </div>
-                </div>
+                <div class="st-nav"><span></span><button type="submit" class="st-btn st-btn-primary save-step">Lưu</button></div>
             </section>
 
             <!-- Step 3 -->
             <section class="st-panel" data-panel="3">
                 <div class="st-card">
                     <div class="st-card-title">Kết nối WePRO</div>
-                    <p class="st-card-lead">Để bấm một nút là lấy task từ WePRO và logtime. Không dùng WePRO thì tắt và bấm Lưu.</p>
-                    <label class="st-toggle"><span><b>Dùng WePRO</b><span class="st-help" style="margin:0">Lấy task, logtime ngay trong báo cáo</span></span><input type="checkbox" name="wepro_enabled" value="1" <?= !empty($wepro['enabled']) ? 'checked' : '' ?>></label>
+                    <p class="st-card-lead">Dùng để lấy task, tạo/sửa task và logtime. Không dùng WePRO thì tắt công tắc và bấm Lưu.</p>
+                    <label class="st-toggle"><span><b>Dùng WePRO</b><span class="st-help" style="margin:0">Bật các nút WePRO ở trang báo cáo và trang Task</span></span><input type="checkbox" name="wepro_enabled" value="1" <?= !empty($wepro['enabled']) ? 'checked' : '' ?>></label>
+                    <div id="weproFields">
                     <div class="st-field">
                         <label class="st-label">Địa chỉ WePRO</label>
                         <input name="wepro_base_url" class="st-input" placeholder="https://wepro.rcvn.work" value="<?= e($wepro['base_url'] ?? 'https://wepro.rcvn.work') ?>">
@@ -239,28 +239,37 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
                         <div class="st-field">
                             <label class="st-label">User cổng Basic auth</label>
                             <input name="wepro_basic_user" autocomplete="off" class="st-input" placeholder="user" value="<?= e($wepro['basic_user'] ?? '') ?>">
+                            <p class="st-help">Hộp đăng nhập của trình duyệt hiện ra trước khi vào WePRO.</p>
                         </div>
                         <div class="st-field">
-                            <label class="st-label">Mật khẩu cổng Basic auth</label>
-                            <input type="password" name="wepro_basic_pass" autocomplete="new-password" class="st-input" placeholder="<?= !empty($wepro['basic_pass']) ? '(đã lưu, để trống nếu giữ nguyên)' : 'password' ?>" value="">
+                            <label class="st-label">Mật khẩu cổng Basic auth <?= !empty($wepro['basic_pass']) ? '<span class="st-saved">đã lưu</span>' : '' ?></label>
+                            <input type="password" name="wepro_basic_pass" autocomplete="new-password" class="st-input" placeholder="<?= !empty($wepro['basic_pass']) ? 'Để trống nếu giữ nguyên' : 'password' ?>" value="">
                         </div>
                     </div>
                     <div class="st-field">
-                        <label class="st-label">Cookie đăng nhập (remember_web_...)</label>
-                        <textarea name="wepro_remember_cookie" rows="3" autocomplete="off" class="st-input" placeholder="<?= !empty($wepro['remember_cookie']) ? '(đã lưu, để trống nếu giữ nguyên)' : 'remember_web_xxx=eyJpdiI6...' ?>"></textarea>
-                        <p class="st-help">Cách lấy: mở WePRO → F12 → Application → Cookies → chọn dòng <b>remember_web_…</b> → copy cả <b>tên</b> và <b>giá trị</b>, dán vào dạng <code>tên=giá_trị</code>. Cookie này sống rất lâu, chỉ lấy lại khi bạn đăng xuất WePRO.</p>
+                        <label class="st-label">Cookie đăng nhập WePRO <?= !empty($wepro['remember_cookie']) ? '<span class="st-saved">đã lưu · ' . e(preg_replace('/=.*/', '', (string)$wepro['remember_cookie'])) . '</span>' : '' ?></label>
+                        <textarea name="wepro_remember_cookie" id="weproCookie" rows="3" autocomplete="off" class="st-input" placeholder="<?= !empty($wepro['remember_cookie']) ? 'Để trống nếu giữ nguyên. Dán cookie mới vào đây để thay.' : 'Dán vào đây: remember_web_xxx=eyJpdiI6...' ?>"></textarea>
+                        <p class="st-help" id="weproCookieHint">Dán nguyên dòng <b>Cookie:</b> từ DevTools cũng được, app tự lọc ra phần <b>remember_web_…</b>.</p>
+                        <details class="st-howto">
+                            <summary>Cách lấy cookie (30 giây)</summary>
+                            <ol>
+                                <li>Mở WePRO trong trình duyệt, đã đăng nhập (có tick "Ghi nhớ").</li>
+                                <li>Bấm <b>F12</b> → tab <b>Application</b> (Edge/Chrome) → <b>Cookies</b> → chọn <code>https://wepro.rcvn.work</code>.</li>
+                                <li>Tìm dòng tên bắt đầu bằng <b>remember_web_</b>. Nháy đúp vào ô <b>Value</b>, Ctrl+A, Ctrl+C.</li>
+                                <li>Dán vào ô trên dạng <code>remember_web_…=giá_trị</code>, hoặc dán nguyên dòng header <code>Cookie:</code> từ tab Network.</li>
+                            </ol>
+                            <p>Cookie này sống nhiều tháng. Chỉ phải lấy lại khi bạn bấm Đăng xuất trên WePRO hoặc đổi mật khẩu.</p>
+                        </details>
                     </div>
-                    <label class="flex items-center gap-2 text-sm text-zinc-700" style="margin-bottom:12px;"><input type="checkbox" name="wepro_include_subtasks" value="1" <?= !empty($wepro['include_subtasks']) ? 'checked' : '' ?> class="h-4 w-4 rounded border-zinc-300"> Lấy cả task con (chậm hơn, khoảng 30 giây)</label>
-                    <button type="button" id="weproTestBtn" class="st-btn">Kiểm tra kết nối</button>
-                    <p id="weproTestResult" class="st-status wait hidden"></p>
-                    <p class="st-help">Kiểm tra dùng thông tin <b>đã lưu</b>. Sửa xong hãy bấm Lưu trước rồi mới Kiểm tra.</p>
-                </div>
-                <div class="st-nav">
-                    <button type="button" class="st-btn prev-step" data-prev="2">← Quay lại</button>
-                    <div class="flex gap-2">
-                        <button type="submit" class="st-btn st-btn-primary save-step" data-finish="1">Lưu và xong ✓</button>
+                    <label class="flex items-center gap-2 text-sm text-zinc-700" style="margin-bottom:12px;"><input type="checkbox" name="wepro_include_subtasks" value="1" <?= !empty($wepro['include_subtasks']) ? 'checked' : '' ?> class="h-4 w-4 rounded border-zinc-300"> Lấy cả task con khi tải danh sách (chậm hơn, khoảng 10 giây)</label>
+                    <div class="flex gap-2 items-center flex-wrap">
+                        <button type="button" id="weproTestBtn" class="st-btn">Lưu và kiểm tra kết nối</button>
+                        <span class="st-help" style="margin:0">Lưu các ô trên rồi thử đăng nhập và đọc task của project mặc định.</span>
+                    </div>
+                    <div id="weproTestResult" class="st-test hidden"></div>
                     </div>
                 </div>
+                <div class="st-nav"><span></span><button type="submit" class="st-btn st-btn-primary save-step">Lưu</button></div>
             </section>
         </form>
 
