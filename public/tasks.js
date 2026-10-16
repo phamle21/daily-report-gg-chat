@@ -14,6 +14,7 @@ $(document).ready(function () {
     };
 
     let tasks = [];
+    let me = 0;
     let byId = new Map();
     let activeId = 0;
     // Pending edits per task id: { heading, en_name, description, task_percent, status, parent_id }.
@@ -40,7 +41,7 @@ $(document).ready(function () {
     function cacheSet(list) {
         // Descriptions are loaded lazily and are not part of the shared list.
         const clean = list.map(t => { const c = $.extend({}, t); delete c.description_loaded; return c; });
-        try { const all = cacheRead(); all[project()] = { tasks: clean, fetchedAt: new Date().toISOString() }; localStorage.setItem(CACHE_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ }
+        try { const all = cacheRead(); all[project()] = { tasks: clean, me, fetchedAt: new Date().toISOString() }; localStorage.setItem(CACHE_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ }
     }
     function cacheClear() { try { const all = cacheRead(); delete all[project()]; localStorage.setItem(CACHE_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ } }
 
@@ -87,6 +88,13 @@ $(document).ready(function () {
         if (!st) return escapeHtml(t.due_date || '—');
         return '<b class="tk-due ' + st + '" title="' + (st === 'late' ? 'Quá hạn' : 'Hạn hôm nay') + '">' + escapeHtml(t.due_date) + '<i>!</i></b>';
     }
+    function initials(name) { const p = String(name || '').trim().split(/\s+/); return ((p[0] || '')[0] || '') + ((p[p.length - 1] || '')[0] || ''); }
+    function isMine(t) { return me > 0 && (t.assignees || []).some(a => a.id === me); }
+    function assigneeHtml(t) {
+        const list = t.assignees || [];
+        if (!list.length) return '<em title="Chưa giao ai"><u>ai</u>—</em>';
+        return '<em class="tk-who" title="' + escapeHtml(list.map(a => a.name).join(', ')) + '"><u>ai</u>' + list.map(a => '<b class="' + (a.id === me ? 'is-me' : '') + '">' + escapeHtml(initials(a.name).toUpperCase()) + '</b>').join('') + '</em>';
+    }
     function rowHtml(t, isChild, childCount) {
         const status = current(t, 'status');
         const st = STATUS[status] || { label: status || '—', cls: '' };
@@ -101,6 +109,7 @@ $(document).ready(function () {
             + '</span>'
             + '<span class="tk-title"><b contenteditable="true" spellcheck="false" title="Sửa tên ngay tại đây, Enter để xong">' + escapeHtml(current(t, 'heading')) + '</b><i class="tk-dot"></i>' + (current(t, 'en_name') ? '<span>' + escapeHtml(current(t, 'en_name')) + '</span>' : '')
             + '<span class="tk-meta-row">' + (t.start_date || t.due_date ? '<em title="Bắt đầu → hạn"><u>ngày</u>' + escapeHtml(t.start_date || '—') + ' → ' + dueHtml(t, status) + '</em>' : '')
+            + assigneeHtml(t)
             + (t.estimate_hours !== undefined ? '<em title="Ước lượng / đã log"><u>est</u>' + (Number(t.estimate_hours) || 0) + 'h' + (Number(t.logged_hours) ? ' · log ' + Number(t.logged_hours) + 'h' : '') + '</em>' : '') + '</span>'
             + dirtyChips(t.id) + '</span>'
             + '<span class="tk-pct"><span class="tk-bar' + (pct >= 100 ? ' done' : '') + '"><i style="width:' + pct + '%"></i></span><output>' + pct + '%</output></span>'
@@ -158,6 +167,7 @@ $(document).ready(function () {
         const cached = force ? null : cacheGet();
         if (cached) {
             tasks = cached.tasks;
+            me = Number(cached.me) || 0;
             $('#tkNote').text(tasks.length + ' task · cache ' + new Date(cached.fetchedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
             render();
             return;
@@ -167,6 +177,7 @@ $(document).ready(function () {
         ajax('wepro-tasks.php', {}).done(function (res) {
             if (!res || !res.success) { $('#tkNote').text('Lỗi'); $('#tkList').html('<div class="tk-empty">' + escapeHtml((res && res.message) || 'Không lấy được task.') + '</div>'); return; }
             tasks = res.tasks || [];
+            me = Number(res.me) || 0;
             cacheSet(tasks);
             $('#tkNote').text(tasks.length + ' task · vừa tải');
             render();
@@ -193,21 +204,27 @@ $(document).ready(function () {
         const needle = ($('#tkSearch').val() || '').trim().toLowerCase();
         const status = $('#tkStats .is-active').data('status') || 'all';
         const when = $('#tkWhen .is-active').data('when') || 'all';
-        const hit = $row => {
+        const who = $('#tkWho .is-active').data('who') || 'all';
+        // "me": any task assigned to me (a parent of mine shows all its children).
+        // "me-child": only children / loose tasks assigned to me; the parent is shown as context only.
+        const whoOk = (t, isParentRow) => who === 'all' || (who === 'me' ? isMine(t) : (!isParentRow && isMine(t)));
+        const hit = ($row, isParentRow) => {
             if ($row.find('.tk-check').prop('checked') || $row.hasClass('is-dirty') || Number($row.data('id')) === activeId) return true;
             const text = ($row.find('.tk-code').text() + ' ' + $row.find('.tk-title').text()).toLowerCase();
             const t = byId.get(Number($row.data('id')));
-            return !(needle !== '' && text.indexOf(needle) === -1) && !(status !== 'all' && $row.data('status') !== status) && (!t || inWhen(t, when));
+            return !(needle !== '' && text.indexOf(needle) === -1) && !(status !== 'all' && $row.data('status') !== status) && (!t || (inWhen(t, when) && whoOk(t, isParentRow)));
         };
-        $('#tkList .tk-loose .tk-row').each(function () { $(this).toggleClass('hidden', !hit($(this))); });
+        $('#tkList .tk-loose .tk-row').each(function () { $(this).toggleClass('hidden', !hit($(this), false)); });
         $('#tkList .tk-group').each(function () {
             const $g = $(this);
             const $p = $g.children('.tk-row');
-            const pHit = hit($p);
+            const pHit = hit($p, true);
+            // A matching parent carries its children along, except in "me-child" where each child must match itself.
+            const carry = pHit && who !== 'me-child';
             let anyKid = false;
-            $g.find('.tk-children .tk-row').each(function () { const h = pHit || hit($(this)); $(this).toggleClass('hidden', !h); if (h) anyKid = true; });
+            $g.find('.tk-children .tk-row').each(function () { const h = carry || hit($(this), false); $(this).toggleClass('hidden', !h); if (h) anyKid = true; });
             $g.toggleClass('hidden', !pHit && !anyKid);
-            if (needle !== '' && (pHit || anyKid)) $g.removeClass('is-folded');
+            if ((needle !== '' || who !== 'all') && (pHit || anyKid)) $g.removeClass('is-folded');
         });
         $('#tkList .tk-section').each(function () {
             const $s = $(this);
@@ -215,6 +232,13 @@ $(document).ready(function () {
         });
     }
     $('#tkSearch').on('input', applyFilter);
+    const WHO_KEY = 'dr-tasks-who';
+    $('#tkWho').on('click', 'button', function () {
+        $('#tkWho button').removeClass('is-active'); $(this).addClass('is-active');
+        try { localStorage.setItem(WHO_KEY, $(this).data('who')); } catch (e) { /* ignore */ }
+        applyFilter();
+    });
+    try { const w = localStorage.getItem(WHO_KEY); if (w) { $('#tkWho button').removeClass('is-active').filter('[data-who="' + w + '"]').addClass('is-active'); } } catch (e) { /* ignore */ }
     $('#tkWhen').on('click', 'button', function () { $('#tkWhen button').removeClass('is-active'); $(this).addClass('is-active'); applyFilter(); });
     $('#tkStats').on('click', '.tk-stat', function () { $('#tkStats .tk-stat').removeClass('is-active'); $(this).addClass('is-active'); applyFilter(); });
     $('#tkList').on('click', '.tk-fold', function (e) { e.stopPropagation(); $(this).closest('.tk-group').toggleClass('is-folded'); });

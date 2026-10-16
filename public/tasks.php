@@ -131,6 +131,9 @@ function e($value)
         .tk-row.due-late { box-shadow:inset 4px 0 0 #fca5a5; }
         .tk-row.due-today { box-shadow:inset 4px 0 0 #fcd34d; }
         .tk-row.is-dirty.due-late, .tk-row.is-dirty.due-today { box-shadow:inset 4px 0 0 #f59e0b, inset 0 0 0 1px #fcd34d; }
+        .tk-who { display:inline-flex; align-items:center; gap:4px; }
+        .tk-who b { display:inline-flex; height:16px; min-width:16px; padding:0 4px; border-radius:999px; background:#e4e4e7; color:#3f3f46; font-size:9.5px; font-weight:800; align-items:center; justify-content:center; }
+        .tk-who b.is-me { background:var(--tk-brand); color:#fff; }
         .tk-meta-row u { text-decoration:none; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#a1a1aa; margin-right:4px; }
         .tk-diff-wrap { text-align:left; max-height:60vh; overflow:auto; display:flex; flex-direction:column; gap:10px; }
         .tk-diff { border:1px solid var(--tk-line); border-radius:10px; overflow:hidden; }
@@ -290,6 +293,11 @@ function e($value)
             </div>
             <div class="tk-tools">
                 <label class="tk-search"><input type="text" id="tkSearch" placeholder="Tìm theo mã hoặc tên task   /" autocomplete="off"></label>
+                <div class="tk-seg" id="tkWho" title="Lọc theo người được giao">
+                    <button type="button" class="is-active" data-who="all">Mọi người</button>
+                    <button type="button" data-who="me" title="Task giao cho tôi, kể cả task cha; task cha của tôi hiện cả các task con">Của tôi</button>
+                    <button type="button" data-who="me-child" title="Chỉ task con / task lẻ giao cho tôi, bỏ qua việc task cha có giao cho tôi hay không">Của tôi · chỉ task con</button>
+                </div>
                 <div class="tk-seg" id="tkWhen" title="Lọc theo thời gian làm (bắt đầu → hạn)">
                     <button type="button" class="is-active" data-when="all">Mọi lúc</button>
                     <button type="button" data-when="today">Hôm nay</button>

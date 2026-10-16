@@ -171,6 +171,43 @@ function fetchGantt($baseUrl, $projectId, $cookie, $basicUser, $basicPass)
     return $out;
 }
 
+// Who "me" is: the create form preselects the current user as assignee. One extra small request.
+function fetchMe($baseUrl, $projectId, $cookie, $basicUser, $basicPass)
+{
+    $ch = curl_init($baseUrl . '/account/tasks/create?task_project_id=' . rawurlencode($projectId));
+    $opts = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'],
+        CURLOPT_COOKIE => $cookie,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
+    ];
+    if ($basicUser !== '') {
+        $opts[CURLOPT_USERPWD] = $basicUser . ':' . $basicPass;
+        $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
+    }
+    curl_setopt_array($ch, weproBrowserOpts($opts, $baseUrl));
+    $body = curl_exec($ch);
+    curl_close($ch);
+    $json = $body !== false ? json_decode($body, true) : null;
+    $html = is_array($json) && isset($json['html']) ? (string)$json['html'] : (string)$body;
+    return preg_match("/#selectAssignee'\)\.val\('(\d+)'\)/", $html, $m) ? (int)$m[1] : 0;
+}
+
+// Assignees only exist as avatar links in the `users` HTML: /account/employees/<id> + tooltip name.
+function taskAssignees($html)
+{
+    $out = [];
+    if (preg_match_all('#employees/(\d+)"[^>]*>\s*<img[^>]*data-original-title="([^"]*)"#', (string)$html, $m, PREG_SET_ORDER)) {
+        foreach ($m as $x) {
+            $out[] = ['id' => (int)$x[1], 'name' => html_entity_decode($x[2], ENT_QUOTES, 'UTF-8')];
+        }
+    }
+    return $out;
+}
+
 $tasks = [];
 foreach ($data['data'] as $row) {
     if (!is_array($row)) {
@@ -190,6 +227,7 @@ foreach ($data['data'] as $row) {
         'start_date' => trim((string)($row['create_on'] ?? '')),
         'due_date' => trim((string)($row['due_on'] ?? '')),
         'subtask_count' => (int)($row['subtasks_count'] ?? 0),
+        'assignees' => taskAssignees($row['users'] ?? ''),
         'estimate_hours' => round(((int)($row['total_estimate_minutes'] ?? 0)) / 60, 1),
         'logged_hours' => round(((float)($row['total_log_time'] ?? 0)) / 60, 1),
         'parent_id' => 0,
@@ -217,8 +255,10 @@ foreach ($tasks as $i => $task) {
     }
 }
 
+$me = fetchMe($baseUrl, $projectId, $cookie, (string)($wepro['basic_user'] ?? ''), (string)($wepro['basic_pass'] ?? ''));
 echo json_encode([
     'success' => true,
+    'me' => $me,
     'mapped_children' => $mapped,
     'fetched_at' => date('c'),
     'total' => (int)($data['recordsFiltered'] ?? count($tasks)),
