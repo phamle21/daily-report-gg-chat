@@ -1171,12 +1171,14 @@ Ghi chú bổ sung (nếu có):
         const cursor = new Date(start + 'T00:00:00');
         const last = new Date(end + 'T00:00:00');
         while (cursor <= last) {
-            dates.push(cursor.toISOString().slice(0, 10));
+            dates.push(dateToValue(cursor));
             cursor.setDate(cursor.getDate() + 1);
         }
         return dates;
     }
     $('#googleFormRangeBtn').on('click', async function () {
+        const startTime = $(this).attr('data-start-time');
+        const endTime = $(this).attr('data-end-time');
         const todayDate = new Date();
         const today = dateToValue(todayDate);
         function shift(days) { const d = new Date(todayDate); d.setDate(d.getDate() + days); return dateToValue(d); }
@@ -1208,6 +1210,10 @@ Ghi chú bổ sung (nếu có):
                 + '<label class="dr-gf-field"><span>Từ ngày</span><input type="date" id="gfStart" data-allow-custom="true" value="' + today + '"></label>'
                 + '<label class="dr-gf-field"><span>Đến ngày</span><input type="date" id="gfEnd" data-allow-custom="true" value="' + today + '"></label>'
                 + '</div>'
+                + '<div class="dr-gf-range">'
+                + '<label class="dr-gf-field"><span>Giờ bắt đầu</span><input type="time" id="gfStartTime" value="' + escapeHtml(startTime) + '" required></label>'
+                + '<label class="dr-gf-field"><span>Giờ kết thúc</span><input type="time" id="gfEndTime" value="' + escapeHtml(endTime) + '" required></label>'
+                + '</div>'
                 + '<label class="dr-gf-skip"><input type="checkbox" id="gfSkipWeekend" checked> Bỏ qua thứ 7, chủ nhật</label>'
                 + '<p class="dr-gf-summary" id="gfSummary"></p>',
             buttonsStyling: false,
@@ -1234,11 +1240,13 @@ Ghi chú bổ sung (nếu có):
                 if (!dates) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.'); return false; }
                 if (!dates.length) { Swal.showValidationMessage('Không có ngày nào để nộp.'); return false; }
                 if (dates.length > 31) { Swal.showValidationMessage('Mỗi lần tối đa 31 ngày.'); return false; }
-                return dates;
+                const startTime = $('#gfStartTime').val(), endTime = $('#gfEndTime').val();
+                if (!startTime || !endTime || startTime >= endTime) { Swal.showValidationMessage('Giờ kết thúc phải sau giờ bắt đầu.'); return false; }
+                return { dates, startTime, endTime };
             }
         });
         if (!picked.isConfirmed) return;
-        const dates = picked.value;
+        const { dates, startTime: selectedStartTime, endTime: selectedEndTime } = picked.value;
         Swal.fire({ title: 'Đang nộp...', allowOutsideClick: false, showConfirmButton: false, customClass: WEPRO_SWAL_CLASS, didOpen: () => Swal.showLoading() });
         const succeeded = [];
         const failed = [];
@@ -1246,7 +1254,7 @@ Ghi chú bổ sung (nếu có):
             Swal.update({ title: 'Đang nộp ' + (i + 1) + '/' + dates.length + '...' });
             Swal.showLoading();
             try {
-                const res = await $.ajax({ url: 'submit-google-form.php', method: 'POST', dataType: 'json', data: { date: dates[i], csrf_token: weproCsrf() } });
+                const res = await $.ajax({ url: 'submit-google-form.php', method: 'POST', dataType: 'json', data: { date: dates[i], start_time: selectedStartTime, end_time: selectedEndTime, csrf_token: weproCsrf() } });
                 if (res.success) succeeded.push(dates[i]); else failed.push({ date: dates[i], message: res.message || 'Có lỗi xảy ra' });
             } catch (err) {
                 failed.push({ date: dates[i], message: 'Không kết nối được máy chủ' });

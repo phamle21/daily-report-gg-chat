@@ -60,13 +60,23 @@ if (!$date || ($dateErrors !== false && ($dateErrors['warning_count'] > 0 || $da
     respond(false, 'Ngày submit không hợp lệ');
 }
 
+$startTime = trim($_POST['start_time'] ?? sprintf('%02d:%02d', (int)($googleForm['start_hour'] ?? 8), (int)($googleForm['start_minute'] ?? 0)));
+$endTime = trim($_POST['end_time'] ?? sprintf('%02d:%02d', (int)($googleForm['end_hour'] ?? 17), (int)($googleForm['end_minute'] ?? 0)));
+if (!preg_match('/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/', $startTime)
+    || !preg_match('/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/', $endTime)
+    || $startTime >= $endTime) {
+    respond(false, 'Giờ kết thúc phải sau giờ bắt đầu và có định dạng HH:mm hợp lệ');
+}
+[$startHour, $startMinute] = explode(':', $startTime);
+[$endHour, $endMinute] = explode(':', $endTime);
+
 $formData = [
     'entry.1568765630' => $googleForm['email'] ?? '',
     'entry.603488309' => $googleForm['department'] ?? '',
-    'entry.90373077_hour' => $googleForm['start_hour'] ?? '08',
-    'entry.90373077_minute' => $googleForm['start_minute'] ?? '00',
-    'entry.1722653064_hour' => $googleForm['end_hour'] ?? '17',
-    'entry.1722653064_minute' => $googleForm['end_minute'] ?? '00',
+    'entry.90373077_hour' => $startHour,
+    'entry.90373077_minute' => $startMinute,
+    'entry.1722653064_hour' => $endHour,
+    'entry.1722653064_minute' => $endMinute,
     'entry.1510561303' => 'NoBody',
     'entry.1748841788' => '↓↓↓↓↓',
     'entry.1562962609' => 'Working',
