@@ -54,7 +54,7 @@ $(document).ready(function () {
     }
     // Current value of a field = pending edit if any, else what WePRO has.
     function original(t, f) {
-        return { heading: t.title, en_name: t.title_en || '', description: t.description_loaded, task_percent: step5(t.percent), status: t.status || '', parent_id: t.parent_id || 0 }[f];
+        return { heading: t.title, en_name: t.title_en || '', description: t.description_loaded, task_percent: step5(t.percent), estimate_hours: Number(t.estimate_hours) || 0, status: t.status || '', parent_id: t.parent_id || 0 }[f];
     }
     function current(t, f) {
         const e = dirty.get(t.id);
@@ -69,7 +69,7 @@ $(document).ready(function () {
     }
 
     // ----- list -----
-    const FIELD_LABEL = { heading: 'tên', en_name: 'tên EN', description: 'mô tả', task_percent: 'tiến độ', status: 'trạng thái', parent_id: 'task cha' };
+    const FIELD_LABEL = { heading: 'tên', en_name: 'tên EN', description: 'mô tả', task_percent: 'tiến độ', estimate_hours: 'ước lượng', status: 'trạng thái', parent_id: 'task cha' };
     function dirtyChips(id) {
         const e = dirty.get(id);
         if (!e) return '';
@@ -268,6 +268,7 @@ $(document).ready(function () {
         $('#edCode').text(t.short_code);
         $('#edVn').val(current(t, 'heading'));
         $('#edEn').val(current(t, 'en_name'));
+        $('#edEst').val(current(t, 'estimate_hours'));
         setPct(current(t, 'task_percent'), false);
         paintStatus(current(t, 'status'));
         $('#edParent').val(current(t, 'parent_id') ? parentLabel(current(t, 'parent_id')) : '');
@@ -323,7 +324,7 @@ $(document).ready(function () {
         if (!t) return;
         const edits = dirty.get(t.id) || {};
         const orig = original(t, f);
-        const same = (f === 'task_percent' || f === 'parent_id') ? Number(value) === Number(orig) : String(value) === String(orig);
+        const same = (f === 'task_percent' || f === 'parent_id' || f === 'estimate_hours') ? Number(value) === Number(orig) : String(value) === String(orig);
         if (same) delete edits[f]; else edits[f] = value;
         if (Object.keys(edits).length) dirty.set(t.id, edits); else dirty.delete(t.id);
         $('#tkList .tk-row[data-id="' + t.id + '"]').toggleClass('is-dirty', dirty.has(t.id)).removeClass('is-saved is-bad');
@@ -334,6 +335,7 @@ $(document).ready(function () {
     function edit(f, value) { editOn(activeId, f, value); }
     $('#edVn').on('input', function () { edit('heading', this.value); });
     $('#edEn').on('input', function () { edit('en_name', this.value); });
+    $('#edEst').on('input', function () { edit('estimate_hours', this.value === '' ? 0 : Math.max(0, Number(this.value) || 0)); });
     $('#edDesc').on('input', function () { edit('description', this.value); });
     $('#edRange').on('input change', function () { setPct(this.value, true); });
     $('#edPct').on('change', function () { setPct(this.value, true); });
@@ -349,14 +351,15 @@ $(document).ready(function () {
                 + '<p class="tk-ai-note">' + escapeHtml(titleNote) + '</p>'
                 + '<div class="tk-ai-label">AI đã giúp bạn bao nhiêu phần trăm? <b>*</b></div>'
                 + '<div class="tk-ai-pct">' + AI_PCT.map(p => '<button type="button" data-v="' + p[0] + '"' + (String(prev.percentage) === String(p[0]) ? ' class="is-active"' : '') + '><b>' + p[1] + '</b><span>' + p[2] + '</span></button>').join('') + '</div>'
-                + '<div class="tk-ai-label">AI đã hỗ trợ trong những phần nào? <b>*</b></div>'
-                + '<div class="tk-ai-purpose">' + AI_PURPOSE.map(p => '<button type="button" data-v="' + escapeHtml(p[0]) + '"' + ((prev.purposes || []).indexOf(p[0]) !== -1 ? ' class="is-active"' : '') + '>' + escapeHtml(p[1]) + '</button>').join('') + '</div>'
+                + '<div id="aiPurposeWrap"' + (String(prev.percentage) === '0' ? ' hidden' : '') + '><div class="tk-ai-label">AI đã hỗ trợ trong những phần nào? <b>*</b></div>'
+                + '<div class="tk-ai-purpose">' + AI_PURPOSE.map(p => '<button type="button" data-v="' + escapeHtml(p[0]) + '"' + ((prev.purposes || []).indexOf(p[0]) !== -1 ? ' class="is-active"' : '') + '>' + escapeHtml(p[1]) + '</button>').join('') + '</div></div>'
                 + '<div class="tk-ai-label">Ghi chú thêm <small id="aiCount">0/200</small></div>'
                 + '<textarea id="aiNotes" maxlength="200" rows="3" placeholder="Ví dụ: dùng AI sinh test case">' + escapeHtml(prev.notes || '') + '</textarea>'
                 + '</div>',
             buttonsStyling: false, customClass: $.extend({}, SWAL_CLASS, { popup: 'dr-swal dr-swal-wide' }), showCancelButton: true, confirmButtonText: 'Hoàn thành', cancelButtonText: 'Hủy',
             didOpen: function () {
-                $(document).on('click.ai', '.tk-ai-pct button', function () { $('.tk-ai-pct button').removeClass('is-active'); $(this).addClass('is-active'); });
+                // Like WePRO's own dialog: at 0% AI there is nothing to ask about purposes.
+                $(document).on('click.ai', '.tk-ai-pct button', function () { $('.tk-ai-pct button').removeClass('is-active'); $(this).addClass('is-active'); $('#aiPurposeWrap').prop('hidden', Number($(this).data('v')) === 0); });
                 $(document).on('click.ai', '.tk-ai-purpose button', function () { $(this).toggleClass('is-active'); });
                 $(document).on('input.ai', '#aiNotes', function () { $('#aiCount').text(this.value.length + '/200'); });
                 $('#aiCount').text(($('#aiNotes').val() || '').length + '/200');
@@ -366,8 +369,8 @@ $(document).ready(function () {
                 const pct = $('.tk-ai-pct button.is-active').data('v');
                 const purposes = $('.tk-ai-purpose button.is-active').map(function () { return $(this).data('v'); }).get();
                 if (pct === undefined) { Swal.showValidationMessage('Chọn mức % AI đã giúp.'); return false; }
-                if (!purposes.length) { Swal.showValidationMessage('Chọn ít nhất một phần AI đã hỗ trợ.'); return false; }
-                return { percentage: Number(pct), purposes, notes: ($('#aiNotes').val() || '').trim() };
+                if (Number(pct) !== 0 && !purposes.length) { Swal.showValidationMessage('Chọn ít nhất một phần AI đã hỗ trợ.'); return false; }
+                return { percentage: Number(pct), purposes: Number(pct) === 0 ? [] : purposes, notes: ($('#aiNotes').val() || '').trim() };
             }
         }).then(r => (r.isConfirmed ? r.value : null));
     }
@@ -616,6 +619,7 @@ $(document).ready(function () {
                 if (edits.en_name !== undefined) t.title_en = edits.en_name;
                 if (edits.description !== undefined) t.description_loaded = edits.description;
                 if (edits.task_percent !== undefined) t.percent = Number(edits.task_percent);
+                if (edits.estimate_hours !== undefined) t.estimate_hours = Number(edits.estimate_hours);
                 if (edits.status !== undefined) t.status = edits.status;
                 if (edits.parent_id !== undefined) { t.parent_id = Number(edits.parent_id) || 0; movedParent = true; }
                 dirty.delete(r.id);

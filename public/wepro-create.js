@@ -27,6 +27,22 @@ window.WeproCreate = function (env) {
         return ok;
     }
 
+    // Tên EN follows Tên VN through translate.php until the user types in it themselves.
+    function autoTranslate($vn, $en) {
+        clearTimeout($vn.data('trTimer'));
+        if ($en.val().trim() && !$en.data('auto')) return;
+        const vn = $vn.val().trim();
+        if (!vn) { if ($en.data('auto')) $en.val(''); return; }
+        $vn.data('trTimer', setTimeout(function () {
+            $.ajax({ url: 'translate.php', method: 'POST', dataType: 'json', data: { csrf_token: $('input[name="csrf_token"]').first().val(), texts: [vn] } })
+                .done(function (res) {
+                    const en = res && res.success ? res.texts[0] : '';
+                    if (!en || $vn.val().trim() !== vn || ($en.val().trim() && !$en.data('auto'))) return;
+                    $en.val(en).data('auto', true).attr('title', 'Dịch tự động bằng Google, sửa tay nếu cần');
+                });
+        }, 700));
+    }
+
     // Flat list of root tasks for the searchable parent picker: WePRO nests one level only.
     function parentEntries(tasks) {
         const byCode = (a, b) => String(a.short_code).localeCompare(String(b.short_code), undefined, { numeric: true });
@@ -50,12 +66,12 @@ window.WeproCreate = function (env) {
         return '<div class="dr-wc-row">'
             + '<div class="dr-wc-row-l1">'
             + '<input type="text" class="dr-wc-row-vn" placeholder="Tên task (VN) *" value="' + escapeHtml(item.heading || '') + '">'
-            + '<input type="text" class="dr-wc-row-en" placeholder="Tên EN" value="' + escapeHtml(item.en_name || '') + '">'
+            + '<input type="text" class="dr-wc-row-en" placeholder="Tên EN (tự dịch)" value="' + escapeHtml(item.en_name || '') + '">'
             + '<span class="dr-wc-row-btns"><button type="button" class="dr-wc-row-desc-toggle" title="Mô tả task">✎</button><button type="button" class="dr-wc-row-del" title="Xóa dòng">×</button></span>'
             + '</div>'
             + '<div class="dr-wc-row-l2">'
             + '<label><span>Point</span><input type="number" class="dr-wc-row-pt" min="0" step="1" value="' + (item.storypoint || 1) + '"></label>'
-            + '<label><span>Est (h)</span><input type="number" class="dr-wc-row-est" min="0" step="0.5" value="' + (item.estimate_hours || 0) + '"></label>'
+            + '<label><span>Est (h)</span><input type="number" class="dr-wc-row-est" min="0" step="0.5" placeholder="?" value="' + (item.estimate_hours || '') + '"></label>'
             + '<label><span>Bắt đầu</span><input type="date" class="dr-wc-row-start" value="' + escapeHtml(item.start_date || today) + '"></label>'
             + '<label><span>Hạn</span><input type="date" class="dr-wc-row-due" value="' + escapeHtml(item.due_date || today) + '"></label>'
             + '<label><span>Trạng thái</span><select class="dr-wc-row-status">' + statusOptions(item.status) + '</select></label>'
@@ -93,17 +109,19 @@ window.WeproCreate = function (env) {
             + 'Công việc cần chia:\n';
     }
 
-    // opts.parentId preselects the parent.
+    // opts.parentId preselects the parent. opts.onClose(created) replaces the result dialog:
+    // it runs once the form closes, with the created results (empty when cancelled).
     function open(opts) {
         opts = opts || {};
         const today = dateToValue(new Date());
         let form = null;
         let entries = [];
+        let created = [];
         function collectItems() {
             if ($('#wcMode').val() === 'bulk') {
                 return $('#wcRows .dr-wc-row').map(function () {
                     const heading = $(this).find('.dr-wc-row-vn').val().trim();
-                    return heading ? { heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1, start_date: $(this).find('.dr-wc-row-start').val() || '', due_date: $(this).find('.dr-wc-row-due').val() || '', estimate_hours: Number($(this).find('.dr-wc-row-est').val()) || 0, status: $(this).find('.dr-wc-row-status').val() || '', sprint_id: $(this).find('.dr-wc-row-sprint').val() || '', description: $(this).find('.dr-wc-row-desc').val().trim() } : null;
+                    return heading ? { $row: $(this), heading, en_name: $(this).find('.dr-wc-row-en').val().trim(), storypoint: Number($(this).find('.dr-wc-row-pt').val()) || 1, start_date: $(this).find('.dr-wc-row-start').val() || '', due_date: $(this).find('.dr-wc-row-due').val() || '', estimate_hours: Number($(this).find('.dr-wc-row-est').val()) || 0, status: $(this).find('.dr-wc-row-status').val() || '', sprint_id: $(this).find('.dr-wc-row-sprint').val() || '', description: $(this).find('.dr-wc-row-desc').val().trim() } : null;
                 }).get();
             }
             const heading = $('#wcHeading').val().trim();
@@ -147,9 +165,9 @@ window.WeproCreate = function (env) {
                 + '</div>'
                 + '<div class="dr-wc-pane" data-pane="single">'
                 + '<label class="dr-wc-field"><span>Tên task (VN) *</span><input type="text" id="wcHeading" placeholder="VD: [Backoffice] Sửa màn hình đơn hàng"></label>'
-                + '<label class="dr-wc-field"><span>Tên EN (tùy chọn)</span><input type="text" id="wcEn" placeholder="VD: [Backoffice] Fix order screen"></label>'
+                + '<label class="dr-wc-field"><span>Tên EN (tự dịch từ tên VN, sửa được)</span><input type="text" id="wcEn" placeholder="VD: [Backoffice] Fix order screen"></label>'
                 + '<div class="dr-wc-grid"><label class="dr-wc-field"><span>Story point</span><input type="number" id="wcPoint" min="0" step="1" value="1"></label>'
-                + '<label class="dr-wc-field"><span>Ước lượng (giờ)</span><input type="number" id="wcEstimate" min="0" step="0.5" value="0"></label></div>'
+                + '<label class="dr-wc-field"><span>Ước lượng (giờ)</span><input type="number" id="wcEstimate" min="0" step="0.5" placeholder="Nhập số giờ"></label></div>'
                 + '<label class="dr-wc-field"><span>Mô tả (tùy chọn)</span><textarea id="wcDesc" rows="3" placeholder="Cần làm gì, lưu ý gì..."></textarea></label>'
                 + '</div>'
                 + '<div class="dr-wc-pane hidden" data-pane="bulk">'
@@ -166,6 +184,8 @@ window.WeproCreate = function (env) {
             showCancelButton: true,
             confirmButtonText: 'Tạo task',
             cancelButtonText: 'Hủy',
+            showLoaderOnConfirm: true,
+            allowOutsideClick: () => !Swal.isLoading(),
             didOpen: function () {
                 Swal.getConfirmButton().disabled = true;
                 $('.dr-wc-tabs .dr-chip').on('click', function () {
@@ -178,6 +198,9 @@ window.WeproCreate = function (env) {
                     updateCount();
                 });
                 $(document).on('input.wc', '#wcHeading, #wcRows input', updateCount);
+                $(document).on('input.wc', '#wcHeading', function () { autoTranslate($(this), $('#wcEn')); });
+                $(document).on('input.wc', '#wcRows .dr-wc-row-vn', function () { autoTranslate($(this), $(this).closest('.dr-wc-row').find('.dr-wc-row-en')); });
+                $(document).on('input.wc', '#wcEn, #wcRows .dr-wc-row-en', function () { $(this).data('auto', false).removeAttr('title'); });
                 $('#wcAddRow').on('click', function () {
                     $('#wcRows').append(rowHtml());
                     $('#wcRows .dr-wc-row-vn').last().trigger('focus');
@@ -193,6 +216,7 @@ window.WeproCreate = function (env) {
                     const hasFilled = $('#wcRows .dr-wc-row-vn').toArray().some(el => $(el).val().trim());
                     if (!hasFilled) $('#wcRows').empty();
                     $('#wcRows').append(items.map(rowHtml).join(''));
+                    $('#wcRows .dr-wc-row').each(function () { autoTranslate($(this).find('.dr-wc-row-vn'), $(this).find('.dr-wc-row-en')); });
                     $('#wcPaste').val('');
                     $('#wcPasteCount').text('Đã đổ ' + items.length + ' task vào bảng');
                     updateCount();
@@ -256,7 +280,7 @@ window.WeproCreate = function (env) {
                     const bad = items.find(it => !it.start_date || !it.due_date || it.start_date > it.due_date);
                     if (bad) { Swal.showValidationMessage('Dòng "' + bad.heading + '": thiếu ngày hoặc bắt đầu sau hạn.'); return false; }
                 } else if (!$('#wcStart').val() || !$('#wcDue').val() || $('#wcStart').val() > $('#wcDue').val()) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng hạn.'); return false; }
-                return {
+                const v = {
                     items,
                     parent_id: Number($('#wcParent').val()) || 0,
                     status: $('#wcStatus').val(),
@@ -265,14 +289,46 @@ window.WeproCreate = function (env) {
                     due_date: $('#wcDue').val(),
                     user_id: form ? form.me : 0
                 };
+                // Submit while the form is still open, so a failure leaves everything typed in place.
+                return new Promise(function (resolve) {
+                    submit(v).done(function (res) {
+                        const results = (res && res.results) || [];
+                        const ok = results.filter(r => r.success);
+                        const bad = results.filter(r => !r.success);
+                        if (ok.length) {
+                            created = created.concat(ok);
+                            env.onCreated(ok, v);
+                            // Drop the rows that made it, so retrying cannot create them twice.
+                            ok.forEach(r => { const it = items[r.index]; if (it && it.$row) it.$row.remove(); });
+                            if (!$('#wcRows .dr-wc-row').length) $('#wcRows').append(rowHtml());
+                            updateCount();
+                        }
+                        if (!results.length || bad.length) {
+                            const head = ok.length ? 'Đã tạo ' + ok.length + ' task, còn ' + bad.length + ' task lỗi, sửa rồi bấm tạo lại:' : 'Không tạo được task:';
+                            const lines = bad.map(r => '<li>✕ ' + escapeHtml(r.heading || '(trống)') + ' — ' + escapeHtml(r.message) + '</li>').join('');
+                            Swal.showValidationMessage(head + (lines ? '<ul class="dr-wc-results">' + lines + '</ul>' : ' ' + escapeHtml((res && res.message) || 'WePRO không phản hồi.')));
+                            resolve(false);
+                            return;
+                        }
+                        resolve(true);
+                    }).fail(function (xhr) {
+                        Swal.showValidationMessage('Không tạo được task: ' + escapeHtml(env.ajaxError(xhr)));
+                        resolve(false);
+                    });
+                });
             }
-        }).then(function (result) {
-            if (result.isConfirmed) submit(result.value);
+        }).then(function () {
+            if (opts.onClose) { opts.onClose(created); return; }
+            if (created.length) showCreated(created);
         });
     }
 
+    function showCreated(ok) {
+        const list = ok.map(r => '<li>✓ <a href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener noreferrer">#' + r.id + '</a> ' + escapeHtml(r.heading) + '</li>').join('');
+        Swal.fire({ icon: 'success', title: 'Đã tạo ' + ok.length + ' task', html: '<ul class="dr-wc-results">' + list + '</ul>', buttonsStyling: false, customClass: env.swalClass });
+    }
+
     function submit(v) {
-        Swal.fire({ title: 'Đang tạo ' + v.items.length + ' task trên WePRO...', allowOutsideClick: false, showConfirmButton: false, customClass: env.swalClass, didOpen: () => Swal.showLoading() });
         const data = { action: 'store', parent_id: v.parent_id, priority: 'medium', status: v.status, sprint_id: v.sprint_id, start_date: v.start_date, due_date: v.due_date, user_id: v.user_id };
         v.items.forEach(function (it, i) {
             data['tasks[' + i + '][heading]'] = it.heading;
@@ -285,24 +341,7 @@ window.WeproCreate = function (env) {
             if (it.start_date) data['tasks[' + i + '][start_date]'] = it.start_date;
             if (it.due_date) data['tasks[' + i + '][due_date]'] = it.due_date;
         });
-        env.createAjax(data)
-            .done(function (res) {
-                const results = (res && res.results) || [];
-                const ok = results.filter(r => r.success);
-                const bad = results.filter(r => !r.success);
-                if (ok.length) env.onCreated(ok, v);
-                const list = ok.map(r => '<li>✓ <a href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener noreferrer">#' + r.id + '</a> ' + escapeHtml(r.heading) + '</li>').join('')
-                    + bad.map(r => '<li class="is-bad">✕ ' + escapeHtml(r.heading || '(trống)') + ' — ' + escapeHtml(r.message) + '</li>').join('');
-                Swal.fire({
-                    icon: bad.length ? (ok.length ? 'warning' : 'error') : 'success',
-                    title: ok.length ? 'Đã tạo ' + ok.length + '/' + results.length + ' task' : 'Không tạo được task',
-                    html: '<ul class="dr-wc-results">' + list + '</ul>' + (!results.length && res && res.message ? '<p class="dr-modal-note">' + escapeHtml(res.message) + '</p>' : ''),
-                    buttonsStyling: false, customClass: env.swalClass
-                });
-            })
-            .fail(function (xhr) {
-                Swal.fire({ icon: 'error', title: 'Không tạo được task', text: env.ajaxError(xhr), buttonsStyling: false, customClass: env.swalClass });
-            });
+        return env.createAjax(data);
     }
 
     return { open };

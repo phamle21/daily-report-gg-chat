@@ -39,31 +39,38 @@ if ($baseUrl === '' || $cookie === '') {
     fail('Thiếu Base URL hoặc cookie remember trong Thiết lập WePRO');
 }
 
-// Cheap login probe for the header badge: the dashboard answers 200 when the cookie is alive,
-// a redirect to /login when it expired, 401 when Basic auth is wrong.
+// Login probe for the header badge. It hits the project's gantt JSON, the same endpoint the task
+// list already relies on: /account/dashboard answers HEAD + JSON with a 500 even when logged in.
+// Without a project id there is nothing to probe, so the login is left unknown.
 if ($action === 'ping') {
-    $ch = curl_init($baseUrl . '/account/dashboard');
-    $opts = [
-        CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_COOKIE => $cookie, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'],
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
-    ];
-    if (($wepro['basic_user'] ?? '') !== '') {
-        $opts[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
-        $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
-    }
-    curl_setopt_array($ch, weproBrowserOpts($opts, $baseUrl));
-    $t = microtime(true);
-    curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-    $ms = (int)round((microtime(true) - $t) * 1000);
-
-    // Per-project half: the login may be fine while this project still lacks its WePRO id.
     $projectName = trim((string)($_POST['project'] ?? ''));
     $projectId = trim((string)($config['projects'][$projectName]['wepro_project_id'] ?? ''));
+    $code = 0;
+    $err = '';
+    $body = '';
+    $ms = 0;
+    if ($projectId !== '') {
+        $projectUrl = $baseUrl . '/account/projects/' . rawurlencode($projectId);
+        $ch = curl_init($projectUrl . '?tab=gantt&json=true');
+        $opts = [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_COOKIE => $cookie, CURLOPT_TIMEOUT => 20, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTPHEADER => ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'],
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0',
+        ];
+        if (($wepro['basic_user'] ?? '') !== '') {
+            $opts[CURLOPT_USERPWD] = $wepro['basic_user'] . ':' . ($wepro['basic_pass'] ?? '');
+            $opts[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
+        }
+        curl_setopt_array($ch, weproBrowserOpts($opts, $baseUrl, $projectUrl . '?tab=gantt'));
+        $t = microtime(true);
+        $body = (string)curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+        $ms = (int)round((microtime(true) - $t) * 1000);
+    }
+
     $cookieName = preg_match('/^([^=]+)=/', $cookie, $m) ? $m[1] : '';
     $info = [
         'base_url' => $baseUrl,
@@ -78,20 +85,33 @@ if ($action === 'ping') {
         'latency_ms' => $ms,
         'checked_at' => date('c'),
     ];
-    if ($code === 200) {
+    if ($projectId === '') {
+        $login = ['success' => null, 'message' => 'Chưa kiểm tra đăng nhập: project chưa có WePRO Project ID.'];
+    } elseif ($code === 200 && is_array(json_decode($body, true))) {
         $login = ['success' => true, 'message' => 'Cookie còn hạn, đăng nhập OK.'];
+    } elseif ($code === 200) {
+        $login = ['success' => false, 'message' => 'WePRO không trả JSON, nhiều khả năng cookie đã hết hạn. Vào Thiết lập dán cookie mới.'];
     } elseif ($code === 401) {
-        $login = ['success' => false, 'message' => 'Sai user/mật khẩu cổng Basic auth.'];
+        // nginx answers the Basic gate; Laravel answers 401 for an unauthenticated XHR.
+        $login = ['success' => false, 'message' => stripos($body, 'Authorization Required') !== false
+            ? 'Sai user/mật khẩu cổng Basic auth.'
+            : 'Cookie WePRO đã hết hạn (HTTP 401). Vào Thiết lập dán cookie mới.'];
+    } elseif ($code === 403 || $code === 404) {
+        $login = ['success' => false, 'message' => 'WePRO không mở được project ' . $projectId . ' (HTTP ' . $code . '). Kiểm tra WePRO Project ID hoặc quyền vào project.'];
     } elseif ($code === 0) {
         $login = ['success' => false, 'message' => 'Không gọi được WePRO: ' . $err];
-    } else {
+    } elseif (($code >= 300 && $code < 400) || $code === 419) {
         $login = ['success' => false, 'message' => 'Cookie WePRO đã hết hạn (HTTP ' . $code . '). Vào Thiết lập dán cookie mới.'];
+    } elseif ($code >= 500) {
+        $login = ['success' => false, 'message' => 'WePRO lỗi phía server (HTTP ' . $code . ') khi mở project ' . $projectId . '. Mở WePRO trên trình duyệt để kiểm tra.'];
+    } else {
+        $login = ['success' => false, 'message' => 'WePRO trả về HTTP ' . $code . ' không rõ nguyên nhân.'];
     }
     echo json_encode([
-        'success' => $login['success'] && $projectId !== '',
+        'success' => $login['success'] === true,
         'login_ok' => $login['success'],
         'project_ok' => $projectId !== '',
-        'message' => $login['success'] && $projectId === ''
+        'message' => $projectId === ''
             ? 'Project “' . $projectName . '” chưa có WePRO Project ID.'
             : $login['message'],
         'info' => $info,

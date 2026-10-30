@@ -453,20 +453,16 @@ $(document).ready(function () {
         for (let i = 100; i >= 0; i -= 10) {
             options += `<option value="${i}">${i}%</option>`;
         }
-        const statusOptions = TASK_STATUSES
-            .map(status => `<option value="${status}"${status === DEFAULT_TASK_STATUS ? ' selected' : ''}>${status}</option>`)
-            .join('');
 
         return `<div class="task-today-item task-sortable dr-taskrow" data-idx="${idx}">
             <button type="button" class="task-drag-handle dr-taskrow-drag" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
             <input type="text" name="tasks_today[${idx}][issue_no]" class="dr-input dr-col-issue" aria-label="Issue" placeholder="Issue" />
             <textarea name="tasks_today[${idx}][content]" rows="1" class="dr-input dr-col-title" aria-label="Task" placeholder="Mô tả công việc..." required></textarea>
-            <input type="text" name="tasks_today[${idx}][work_type]" data-combo="workType" class="dr-input dr-col-type" aria-label="Loại công việc" placeholder="Coding" autocomplete="off" />
-            <select name="tasks_today[${idx}][status]" class="dr-input dr-col-status" aria-label="Trạng thái">${statusOptions}</select>
+            <select name="tasks_today[${idx}][work_type]" class="dr-input dr-col-type" aria-label="Activity">${workTypeOptionsHtml('')}</select>
             <select name="tasks_today[${idx}][progress]" class="dr-input dr-col-progress" aria-label="Tiến độ" required>
                 <option value="">--%</option>${options}
             </select>
-            <input type="date" name="tasks_today[${idx}][estimate]" class="dr-input dr-col-date" aria-label="Ngày dự kiến hoàn thành" />
+            <input type="number" name="tasks_today[${idx}][hours]" class="dr-input dr-col-hours" min="0" max="24" step="0.5" aria-label="Giờ log WePRO" placeholder="Giờ" />
             <button type="button" class="remove-task dr-taskrow-remove" title="Xóa task" aria-label="Xóa task">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
@@ -491,11 +487,62 @@ $(document).ready(function () {
         if (this.checked && $('#historyOnly').prop('checked')) $('#historyOnly').prop('checked', false).trigger('change');
     });
 
-    function updateTodayTaskState($item) {
+    function updateTodayTaskState() {
         syncSubmitRequirements();
-        const $estimate = $item.find('input[name*="[estimate]"]');
-        // Estimate date is optional and unconstrained; only keep the custom date control in sync.
-        if ($estimate[0]) syncDateControl($estimate[0]);
+    }
+
+    // The report sends no status of its own; it follows the progress.
+    function statusFromProgress(progress) {
+        if (progress === '' || progress === undefined || progress === null) return DEFAULT_TASK_STATUS;
+        const p = Number(progress);
+        return p >= 100 ? 'Hoàn thành' : p <= 0 ? 'Chưa bắt đầu' : DEFAULT_TASK_STATUS;
+    }
+
+    // ===== ACTIVITY (cột Loại) =====
+    // WePRO only exposes its activity list inside a task's timelog form, so it is fetched once
+    // through any known task and cached; until then the built-in work type list stands in.
+    const WEPRO_ACTIVITY_KEY = 'dr-wepro-activities-v1';
+    // WePRO's own dropdown order; also the list used until WePRO's is fetched.
+    const ACTIVITY_ORDER = ['Analytic', 'Research', 'Design', 'Communicate', 'Coding', 'Self-Check', 'Cross-Test', 'Fixbug-Cross',
+        'Leader-Test', 'Fixbug-Leader', 'Fixbug-BSE', 'Deploy-Server', 'Fixbug-Released', 'Support', 'Other Meeting', 'Other Task'];
+    function workTypeLabels() {
+        let labels = ACTIVITY_ORDER;
+        try {
+            const cached = JSON.parse(localStorage.getItem(WEPRO_ACTIVITY_KEY) || '[]');
+            if (Array.isArray(cached) && cached.length) labels = cached.map(a => a.label);
+        } catch (e) { /* ignore */ }
+        const rank = l => { const i = ACTIVITY_ORDER.indexOf(l); return i === -1 ? ACTIVITY_ORDER.length : i; };
+        return labels.slice().sort((a, b) => rank(a) - rank(b));
+    }
+
+    // Starts empty so the activity is a conscious pick. A value outside the list (old drafts,
+    // bulk paste) is kept as an extra option, not dropped.
+    function workTypeOptionsHtml(selected) {
+        const labels = workTypeLabels();
+        const list = selected && !labels.includes(selected) ? labels.concat(selected) : labels;
+        return '<option value="">— Chọn —</option>'
+            + list.map(l => '<option value="' + escapeHtml(l) + '"' + (l === selected ? ' selected' : '') + '>' + escapeHtml(l) + '</option>').join('');
+    }
+    $(document).on('change', 'select[name*="[work_type]"]', function () { $(this).closest('.dr-select').removeClass('is-invalid'); });
+
+    function weproActivitiesStore(activities) {
+        if (!Array.isArray(activities) || !activities.length) return;
+        try { localStorage.setItem(WEPRO_ACTIVITY_KEY, JSON.stringify(activities)); } catch (e) { /* ignore */ }
+        $('#tasks-today-list select[name*="[work_type]"]').each(function () { $(this).html(workTypeOptionsHtml($(this).val())); });
+    }
+
+    let weproActivitiesLoading = false;
+    function weproEnsureActivities() {
+        try { if (JSON.parse(localStorage.getItem(WEPRO_ACTIVITY_KEY) || '[]').length) return; } catch (e) { /* refetch */ }
+        if (weproActivitiesLoading) return;
+        const cached = weproCacheGet($('#project').val() || '');
+        const id = Number($('#tasks-today-list .dr-taskrow').map(function () { return $(this).data('weproId'); }).get()[0])
+            || (cached && cached.tasks[0] ? Number(cached.tasks[0].id) : 0);
+        if (!id) return;
+        weproActivitiesLoading = true;
+        weproTimelogAjax({ action: 'form', 'task_ids[]': id })
+            .done(function (res) { if (res && res.success) weproActivitiesStore(res.activities); })
+            .always(function () { weproActivitiesLoading = false; });
     }
 
 
@@ -513,113 +560,21 @@ $(document).ready(function () {
         return rest.trim() ? { issue: parts.join(' '), content: rest.trim() } : { issue: '', content: String(value || '').trim() };
     }
 
-    function normalizeProgress(value) {
-        const match = String(value || '').match(/\d+/);
-        if (!match) {
-            return '';
-        }
-
-        const progress = Math.max(0, Math.min(100, parseInt(match[0], 10)));
-        return String(Math.floor(progress / 10) * 10);
-    }
-
-    function normalizeDate(value) {
-        const text = String(value || '').trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-            return text;
-        }
-
-        const match = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-        if (!match) {
-            return '';
-        }
-
-        const day = match[1].padStart(2, '0');
-        const month = match[2].padStart(2, '0');
-        return `${match[3]}-${month}-${day}`;
-    }
-
-    function parseBulkTodayTasks(text) {
-        return String(text || '').split(/\r?\n/).map(function (line) {
-            const parts = line.trim().split('|').map(part => part.trim());
-            const content = parts.shift() || '';
-            let work_type = '';
-            let status = '';
-            let progress = '';
-            let estimate = '';
-            parts.forEach(function (part) {
-                if (!part) return;
-                const asDate = normalizeDate(part);
-                if (asDate) {
-                    estimate = asDate;
-                    return;
-                }
-                if (/^\d{1,3}%?$/.test(part)) {
-                    progress = normalizeProgress(part);
-                    return;
-                }
-                const asStatus = TASK_STATUSES.find(item => item.toLowerCase() === part.toLowerCase());
-                if (asStatus) {
-                    status = asStatus;
-                    return;
-                }
-                work_type = part;
-            });
-
-            return { work_type, content, status, progress, estimate };
-        }).filter(task => task.content);
-    }
-
     function getEmptyTodayItem() {
         let $emptyItem = $();
         $('#tasks-today-list .task-today-item').each(function () {
             const $item = $(this);
             const content = $item.find('[name*="[content]"]').val().trim();
             const progress = $item.find('select[name*="[progress]"]').val();
-            const estimate = $item.find('input[name*="[estimate]"]').val();
+            const hours = $item.find('input[name*="[hours]"]').val();
             const issue = $item.find('input[name*="[issue_no]"]').val().trim();
-            if (!content && !progress && !estimate && !issue) {
+            if (!content && !progress && !hours && !issue) {
                 $emptyItem = $item;
                 return false;
             }
         });
 
         return $emptyItem;
-    }
-
-    function getTomorrowDate() {
-        const date = new Date(($('#reportDate').val() || dateToValue(new Date())) + 'T00:00:00');
-        date.setDate(date.getDate() + 1);
-        return [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, '0'),
-            String(date.getDate()).padStart(2, '0')
-        ].join('-');
-    }
-
-    function getAiTaskPrompt() {
-        const project = $('#project').val() || '';
-        const reportDate = formatDisplayDate($('#reportDate').val());
-        return `Tổng hợp công việc của tôi cho dự án ${project} trong ngày ${reportDate} thành danh sách task báo cáo.
-
-Nguồn tổng hợp: chính cuộc trò chuyện này — gồm trao đổi với agent, phân tích, nghiên cứu, thống nhất phương án và việc đã thực hiện, kể cả phần chưa có commit. Dùng thêm ghi chú bổ sung ở cuối prompt nếu có.
-
-Kết quả tôi sẽ dán thẳng vào ô "Nhập nhiều dòng" của form daily report, nên chỉ trả plain text, mỗi task một dòng theo cấu trúc:
-Tiêu đề task | Loại | Trạng thái | tiến độ% | ngày dự kiến
-
-- Tiêu đề bắt đầu bằng issue/ticket hoặc tên feature trong ngoặc vuông nếu có, ví dụ [Issue] [999] Sửa lỗi thêm sản phẩm hoặc [Feature] Màn hình quản lý; bỏ hẳn ngoặc vuông nếu không có, không tự bịa.
-- Loại chọn phù hợp nhất (Coding, Fix bug, Feature, Testing, Review, Research, Discussion, Design, Detail Design, Meeting, Deploy...); nếu không chắc thì dùng Coding.
-- Trạng thái chọn đúng một trong: Chưa bắt đầu, Đang thực hiện, Chờ review, Tạm hoãn, Hoàn thành; nếu không chắc thì dùng Đang thực hiện.
-- Viết ngắn, gộp ý trùng.
-- Mô tả đúng việc thực tế: chỉ trao đổi/phân tích thì ghi rõ, không viết thành đã code, sửa xong hay triển khai.
-- Tiến độ từ 0–100%, theo bước 10%; dựa trên kết quả trao đổi, ước lượng thận trọng nếu chưa có số cụ thể. Không dùng việc có/chưa có commit để kết luận hoàn thành.
-- Task đã hoàn thành: ... | Hoàn thành | 100% (bỏ ngày dự kiến). Một task phân tích/trao đổi có thể hoàn thành nếu đã đạt mục tiêu của chính task đó.
-- Task chưa xong: tiến độ dưới 100%, kèm ngày dự kiến YYYY-MM-DD nếu ước lượng được; không chắc thì bỏ trống, ví dụ ${getTomorrowDate()}.
-- Chỉ tính công việc thuộc dự án ${project} và phát sinh trong ngày ${reportDate}; bỏ qua phần ngoài phạm vi này.
-- Không thêm tiêu đề, bullet, bảng, code block hoặc giải thích; không dùng dấu | bên trong nội dung task. Nếu không có thông tin công việc thì không tạo task.
-
-Ghi chú bổ sung (nếu có):
-[Dán thêm thông tin tại đây hoặc bỏ trống]`;
     }
 
     function addTodayTask(task) {
@@ -631,12 +586,11 @@ Ghi chú bổ sung (nếu có):
 
         const split = splitIssueFromTitle(task.content);
         const issue = String(task.issue_no || task.issue || split.issue || '').trim();
-        $item.find('input[name*="[work_type]"]').val(task.work_type || 'Coding');
+        $item.find('select[name*="[work_type]"]').html(workTypeOptionsHtml(task.work_type || ''));
         $item.find('input[name*="[issue_no]"]').val(issue);
         $item.find('[name*="[content]"]').val(split.content);
-        $item.find('select[name*="[status]"]').val(TASK_STATUSES.includes(task.status) ? task.status : DEFAULT_TASK_STATUS);
         $item.find('select[name*="[progress]"]').val(task.progress);
-        $item.find('input[name*="[estimate]"]').val(task.estimate);
+        $item.find('input[name*="[hours]"]').val(task.hours || '');
         autoGrow($item.find('[name*="[content]"]')[0]);
         setWeproLink($item, task.wepro_id, task.wepro_timelog_url, task.wepro_code);
         updateTodayTaskState($item);
@@ -837,6 +791,7 @@ Ghi chú bổ sung (nếu có):
         $('#weproPickTools').removeClass('hidden');
         Swal.getConfirmButton().disabled = false;
         weproSyncPickCount();
+        weproEnsureActivities();
     }
 
     function weproLoadInto(force) {
@@ -938,13 +893,34 @@ Ghi chú bổ sung (nếu có):
         weproSetFolded($parent, !$parent.next('.dr-wepro-children').hasClass('is-folded'));
     });
 
-    $('#wepro-pick-task').click(function () {
+    // The create form replaces the picker (one Swal at a time); closing it reopens the picker,
+    // reloaded from WePRO when something was created.
+    let weproCreator = null;
+    $(document).on('click', '#weproCreateBtn', function () {
+        weproCreator = weproCreator || window.WeproCreate({
+            createAjax: data => $.ajax({ url: 'wepro-task-create.php', method: 'POST', dataType: 'json', data: $.extend({ csrf_token: weproCsrf(), project: $('#project').val() || '' }, data) }),
+            parentList: () => $.Deferred().resolve(weproTasks).promise(),
+            swalClass: WEPRO_SWAL_CLASS,
+            ajaxError: xhr => xhr && xhr.status ? 'Gọi wepro-task-create.php lỗi HTTP ' + xhr.status + '.' : 'Không gọi được wepro-task-create.php (mất kết nối).',
+            onCreated: function () {}
+        });
+        weproCreator.open({
+            onClose: function (created) {
+                if (created.length) weproCacheClear($('#project').val() || '');
+                weproOpenPicker(created.length > 0);
+            }
+        });
+    });
+
+    $('#wepro-pick-task').click(function () { weproOpenPicker(false); });
+    function weproOpenPicker(force) {
         Swal.fire({
             title: 'Chọn task từ WePRO',
             html: '<p class="dr-modal-note" id="weproPickNote">Đang tải...</p>'
                 + '<div id="weproPickTools" class="dr-wepro-tools hidden">'
                 + '<div class="dr-wepro-tools-row">'
                 + '<input type="text" id="weproPickSearch" class="dr-wepro-search" placeholder="🔍 Lọc theo mã hoặc tên task..." autocomplete="off">'
+                + '<button type="button" id="weproCreateBtn" class="dr-action" title="Tạo task mới trên WePRO">＋ Tạo task</button>'
                 + '<button type="button" id="weproRefreshBtn" class="dr-action" title="Tải lại từ WePRO">⟳ Làm mới</button>'
                 + '</div>'
                 + '<div class="dr-wepro-tools-row">'
@@ -974,7 +950,7 @@ Ghi chú bổ sung (nếu có):
             confirmButtonText: 'Thêm vào report',
             cancelButtonText: 'Hủy',
             didOpen: function () {
-                weproLoadInto(false);
+                weproLoadInto(force);
             },
             preConfirm: function () {
                 const picked = $('#weproPickList .dr-wepro-check:checked').map(function () {
@@ -997,15 +973,12 @@ Ghi chú bổ sung (nếu có):
                     wepro_code: task.full_code,
                     issue_no: task.short_code,
                     content: task.title,
-                    progress: roundToStep(task.percent),
-                    estimate: task.due_date || '',
-                    status: task.percent >= 100 ? 'Hoàn thành'
-                        : (task.percent > 0 ? 'Đang thực hiện' : 'Chưa bắt đầu')
+                    progress: roundToStep(task.percent)
                 });
             });
             scheduleDraftSave();
         });
-    });
+    }
 
     // ===== UI: progress strip, optional cards, more-menu, compact columns, status =====
     function syncProgress() {
@@ -1072,7 +1045,7 @@ Ghi chú bổ sung (nếu có):
     }
     function syncWeproButtons() {
         const any = $('#tasks-today-list .dr-taskrow').toArray().some(el => $(el).data('weproId'));
-        $('#wepro-log-bulk').toggleClass('hidden', !any || $('body').hasClass('dr-wepro-off'));
+        $('#wepro-log-bulk, #wepro-progress-bulk').toggleClass('hidden', !any || $('body').hasClass('dr-wepro-off'));
     }
     new MutationObserver(syncWeproButtons).observe(document.getElementById('tasks-today-list'), { childList: true, subtree: true });
     // Checked per project: the login is shared, the WePRO Project ID is not.
@@ -1084,8 +1057,8 @@ Ghi chú bổ sung (nếu có):
                 weproStatusLast = res || null;
                 setWeproFeatures(!!(res && res.success));
                 if (res && res.disabled) { setWeproStatus('off', 'tắt', 'WePRO đang tắt trong Thiết lập. Bấm để xem.'); return; }
-                if (res && res.success) { setWeproStatus('ok', project, 'Đã kết nối, project ' + project + ' có WePRO ID ' + res.info.project_id); return; }
-                if (res && res.login_ok && !res.project_ok) { setWeproStatus('noproj', project + ' thiếu ID', res.message); return; }
+                if (res && res.success) { setWeproStatus('ok', project, 'Đã kết nối, project ' + project + ' có WePRO ID ' + res.info.project_id); weproEnsureActivities(); return; }
+                if (res && res.login_ok === null) { setWeproStatus('noproj', project + ' thiếu ID', res.message); return; }
                 setWeproStatus('err', 'lỗi', (res && res.message) || 'WePRO chưa kết nối. Bấm để xem chi tiết.');
             })
             .fail(function () { weproStatusLast = null; setWeproFeatures(false); setWeproStatus('err', 'lỗi', 'Không gọi được máy chủ. Bấm để xem chi tiết.'); });
@@ -1103,7 +1076,9 @@ Ghi chú bổ sung (nếu có):
             rows = weproStatusRow('Trạng thái', res && res.disabled ? 'WePRO đang tắt trong Thiết lập' : 'Chưa kiểm tra được (máy chủ không phản hồi)', false);
         } else {
             const i = res.info || {};
-            rows += weproStatusRow('Đăng nhập', escapeHtml(res.login_ok ? 'OK' : 'Lỗi') + ' — ' + escapeHtml(res.login_ok ? 'cookie còn hạn' : res.message), !!res.login_ok);
+            rows += res.login_ok === null
+                ? weproStatusRow('Đăng nhập', 'Chưa kiểm tra — cần WePRO Project ID')
+                : weproStatusRow('Đăng nhập', escapeHtml(res.login_ok ? 'OK' : 'Lỗi') + ' — ' + escapeHtml(res.login_ok ? 'cookie còn hạn' : res.message), !!res.login_ok);
             rows += weproStatusRow('Project ' + escapeHtml(project), res.project_ok ? 'WePRO Project ID ' + escapeHtml(i.project_id) : 'Chưa có WePRO Project ID → Thiết lập → Project', !!res.project_ok);
             rows += weproStatusRow('Địa chỉ', escapeHtml(i.base_url || ''));
             rows += weproStatusRow('Basic auth', escapeHtml(i.basic_user || '(trống)') + (i.basic_pass_set ? ' · mật khẩu đã lưu' : ' · chưa có mật khẩu'), !!i.basic_user && !!i.basic_pass_set);
@@ -1122,7 +1097,7 @@ Ghi chú bổ sung (nếu có):
             denyButtonText: '⟳ Kiểm tra lại',
             cancelButtonText: 'Đóng'
         }).then(function (r) {
-            if (r.isConfirmed) window.location.href = 'settings.php?step=' + (res && res.login_ok && !res.project_ok ? 2 : 3);
+            if (r.isConfirmed) window.location.href = 'settings.php?step=' + (res && res.login_ok === null ? 2 : 3);
             if (r.isDenied) checkWeproStatus().always(function () { $('#weproStatus').trigger('click'); });
         });
     });
@@ -1285,22 +1260,22 @@ Ghi chú bổ sung (nếu có):
             const $row = $(this);
             const id = $row.data('weproId');
             if (!id) return null;
-            const type = String($row.find('input[name*="[work_type]"]').val() || '').trim();
+            const type = String($row.find('select[name*="[work_type]"]').val() || '').trim();
             const content = String($row.find('textarea[name*="[content]"]').val() || '').trim();
             return {
                 id: Number(id),
                 code: String($row.data('weproCode') || $row.find('input[name*="[issue_no]"]').val() || ''),
                 type: type,
-                memo: content
+                memo: content,
+                hours: Number($row.find('input[name*="[hours]"]').val()) || ''
             };
         }).get();
     }
 
     function weproActivityOptions(activities, type) {
-        const wanted = String(type || 'Coding').toLowerCase().replace(/[\s_-]/g, '');
-        let selected = activities.find(a => a.label.toLowerCase().replace(/[\s_-]/g, '') === wanted)
-            || activities.find(a => a.label === 'Coding') || activities[0];
-        return activities.map(a => '<option value="' + escapeHtml(a.value) + '"' + (a === selected ? ' selected' : '') + '>' + escapeHtml(a.label) + '</option>').join('');
+        const wanted = String(type || '').toLowerCase().replace(/[\s_-]/g, '');
+        const selected = wanted ? activities.find(a => a.label.toLowerCase().replace(/[\s_-]/g, '') === wanted) : null;
+        return '<option value="">— Chọn activity —</option>' + activities.map(a => '<option value="' + escapeHtml(a.value) + '"' + (a === selected ? ' selected' : '') + '>' + escapeHtml(a.label) + '</option>').join('');
     }
 
     function weproLogRowHtml(row, activities, withCheck) {
@@ -1311,7 +1286,7 @@ Ghi chú bổ sung (nếu có):
             + '<div class="dr-wlog-fields">'
             + '<select class="dr-wlog-activity">' + weproActivityOptions(activities, row.type) + '</select>'
             + '<input type="text" class="dr-wlog-memo" value="' + escapeHtml(row.memo) + '" placeholder="Ghi chú">'
-            + '<input type="number" class="dr-wlog-hours" min="0.5" max="12" step="0.5" placeholder="Giờ">'
+            + '<input type="number" class="dr-wlog-hours" min="0.5" max="12" step="0.5" placeholder="Giờ" value="' + escapeHtml(row.hours) + '">'
             + '</div></div></div>';
     }
 
@@ -1337,6 +1312,7 @@ Ghi chú bổ sung (nếu có):
         if ($btn.length) $btn.text(total > 0 ? 'Log ' + formatHours(total) + ' lên WePRO' : 'Log lên WePRO');
     }
     $(document).on('input change', '#weproLogList .dr-wlog-hours, #weproLogList .dr-wlog-check', weproUpdateLogTotal);
+    $(document).on('change', '#weproLogList .dr-wlog-activity', function () { $(this).removeClass('is-invalid'); });
 
     function weproOpenLogModal(rows, title) {
         const date = $('#reportDate').val() || new Date().toISOString().slice(0, 10);
@@ -1360,6 +1336,7 @@ Ghi chú bổ sung (nếu có):
                             $('#weproLogNote').text((res && res.message) || 'Không lấy được form WePRO.');
                             return;
                         }
+                        weproActivitiesStore(res.activities);
                         $('#weproLogNote').text(bulk ? 'Tick task cần log, điền activity / ghi chú / giờ.' : 'Điền activity, ghi chú và số giờ.');
                         $('#weproLogList').html(rows.map(r => weproLogRowHtml(r, res.activities, bulk)).join(''));
                         $('#weproLogList .dr-wlog-hours').first().trigger('focus');
@@ -1373,6 +1350,9 @@ Ghi chú bổ sung (nếu có):
                 const picked = weproCollectLogRows($('#weproLogList'));
                 if (!logDate) { Swal.showValidationMessage('Chọn ngày log.'); return false; }
                 if (!picked.length) { Swal.showValidationMessage('Chọn ít nhất 1 task.'); return false; }
+                const noActivity = picked.filter(r => !r.activity);
+                noActivity.forEach(r => $('#weproLogList .dr-wlog-row[data-id="' + r.id + '"] .dr-wlog-activity').addClass('is-invalid'));
+                if (noActivity.length) { Swal.showValidationMessage('Chọn activity cho ' + noActivity.length + ' task.'); return false; }
                 const missing = picked.find(r => !(r.hours > 0));
                 if (missing) { Swal.showValidationMessage('Task ' + missing.id + ' chưa có số giờ.'); return false; }
                 return { date: logDate, rows: picked };
@@ -1446,99 +1426,173 @@ Ghi chú bổ sung (nếu có):
         weproOpenLogModal(rows, 'Logtime WePRO hàng loạt');
     });
 
-    $('#bulk-task-today').click(function () {
-        Swal.fire({
-            title: 'Nhập nhiều task',
-            html: `<textarea id="bulkTaskTodayText" class="dr-modal-field" spellcheck="false" placeholder="[Issue] [999] Bug khi thêm mới sản phẩm | Coding | Đang thực hiện | 50%
-[Feature] Quản lý sản phẩm | Detail Design | Chờ review | 60% | 2026-09-20
-Task C | Hoàn thành | 100%"></textarea>`,
-            buttonsStyling: false,
-            customClass: {
-                popup: 'dr-swal',
-                title: 'dr-swal-title',
-                htmlContainer: 'dr-swal-html',
-                actions: 'dr-modal-actions',
-                confirmButton: 'dr-modal-confirm',
-                cancelButton: 'dr-modal-cancel',
-                validationMessage: 'dr-modal-validation'
-            },
-            showCancelButton: true,
-            confirmButtonText: 'Thêm vào report',
-            cancelButtonText: 'Hủy',
-            didOpen: function () {
-                $('#bulkTaskTodayText').trigger('focus');
-            },
-            preConfirm: function () {
-                const value = $('#bulkTaskTodayText').val();
-                const tasks = parseBulkTodayTasks(value);
-                if (!tasks.length) {
-                    Swal.showValidationMessage('Nhập ít nhất 1 task.');
-                    return false;
-                }
+    // ===== WEPRO: cập nhật % và trạng thái task =====
+    // Values start from the report but stay editable. Status goes out only when it differs from
+    // WePRO's; moving to "completed" needs WePRO's AI-usage survey, asked inline on that row.
+    const WEPRO_STATUS_PICK = [['new', 'Mới', 'st-new'], ['doing', 'Đang làm', 'st-doing'], ['on_hold', 'Tạm hoãn', 'st-hold'], ['completed', 'Xong', 'st-done']];
+    const WEPRO_AI_PCT = [['0', '0%'], ['20', '1~20%'], ['40', '21~40%'], ['80', '41~80%'], ['100', '>80%']];
+    const WEPRO_AI_PURPOSE = [['Ideas/Planning', 'Ý tưởng / kế hoạch'], ['Coding', 'Viết code'], ['Translation', 'Dịch thuật'], ['Writing/Document', 'Viết tài liệu'], ['Testing', 'Kiểm thử'], ['Communication', 'Giao tiếp'], ['Analysis/Research', 'Phân tích / nghiên cứu'], ['Review', 'Review'], ['Other', 'Khác']];
 
-                return tasks;
-            }
-        }).then(function (result) {
-            if (!result.isConfirmed) {
-                return;
-            }
+    function weproProgRowHtml(r) {
+        const before = (r.beforePct === null ? '?' : r.beforePct + '%') + (r.beforeSt && WEPRO_STATUS[r.beforeSt] ? ' · ' + WEPRO_STATUS[r.beforeSt].label : '');
+        return '<div class="dr-wlog-row dr-prog-row" data-id="' + r.id + '">'
+            + '<input type="checkbox" class="dr-wlog-check">'
+            + '<div class="dr-wlog-body">'
+            + '<div class="dr-wlog-code">' + escapeHtml(r.code) + ' · WePRO hiện tại: ' + escapeHtml(before) + '</div>'
+            + '<div class="dr-prog-title">' + escapeHtml(r.title) + '</div>'
+            + '<div class="dr-prog-line"><span>Tiến độ</span><input type="range" class="dr-prog-range" min="0" max="100" step="5" value="' + r.pct + '"><input type="number" class="dr-prog-pct" min="0" max="100" step="5" value="' + r.pct + '"></div>'
+            + '<div class="dr-prog-line"><span>Trạng thái</span><span class="dr-wepro-chips dr-prog-st">'
+            + WEPRO_STATUS_PICK.map(s => '<button type="button" class="dr-chip ' + s[2] + (s[0] === r.st ? ' is-active' : '') + '" data-v="' + s[0] + '">' + s[1] + '</button>').join('')
+            + '</span></div>'
+            + '<div class="dr-prog-ai hidden">'
+            + '<div class="dr-prog-ai-label">WePRO bắt khảo sát khi hoàn thành: AI giúp bao nhiêu? *</div>'
+            + '<span class="dr-wepro-chips dr-prog-aipct">' + WEPRO_AI_PCT.map(p => '<button type="button" class="dr-chip" data-v="' + p[0] + '">' + p[1] + '</button>').join('') + '</span>'
+            + '<div class="dr-prog-aipur-wrap"><div class="dr-prog-ai-label">AI hỗ trợ phần nào? *</div>'
+            + '<span class="dr-wepro-chips dr-prog-aipur">' + WEPRO_AI_PURPOSE.map(p => '<button type="button" class="dr-chip" data-v="' + escapeHtml(p[0]) + '">' + escapeHtml(p[1]) + '</button>').join('') + '</span></div>'
+            + '<input type="text" class="dr-wepro-search dr-prog-ainote" maxlength="200" placeholder="Ghi chú (tùy chọn)">'
+            + '</div>'
+            + '<span class="dr-prog-msg"></span>'
+            + '</div></div>';
+    }
 
-            result.value.forEach(addTodayTask);
-            scheduleDraftSave();
-        });
-    });
-    $('#ai-task-prompt').click(function () {
-        const prompt = getAiTaskPrompt();
+    function weproProgRead($row) {
+        return {
+            pct: Math.max(0, Math.min(100, Number($row.find('.dr-prog-pct').val()) || 0)),
+            st: $row.find('.dr-prog-st .is-active').data('v') || '',
+            aiPct: $row.find('.dr-prog-aipct .is-active').data('v'),
+            aiPurposes: $row.find('.dr-prog-aipur .is-active').map(function () { return $(this).data('v'); }).get(),
+            aiNotes: $row.find('.dr-prog-ainote').val().trim()
+        };
+    }
+
+    // Ticks the row when it differs from WePRO, and shows the survey only for a fresh completion.
+    function weproProgSync($row, r) {
+        const v = weproProgRead($row);
+        const changed = v.pct !== r.beforePct || v.st !== r.beforeSt;
+        $row.find('.dr-wlog-check').prop('checked', changed);
+        $row.find('.dr-prog-ai').toggleClass('hidden', !(v.st === 'completed' && r.beforeSt !== 'completed'));
+        $row.css('border-color', '');
+    }
+
+    $('#wepro-progress-bulk').click(function () {
+        const project = $('#project').val() || '';
+        const cached = weproCacheGet(project);
+        const known = new Map(((cached && cached.tasks) || []).map(t => [Number(t.id), t]));
+        const rows = $('#tasks-today-list .dr-taskrow').map(function () {
+            const id = Number($(this).data('weproId'));
+            if (!id) return null;
+            const t = known.get(id);
+            const progress = $(this).find('select[name*="[progress]"]').val();
+            const pct = progress === '' ? (t ? Number(t.percent) || 0 : 0) : Number(progress);
+            return {
+                id,
+                code: String($(this).data('weproCode') || $(this).find('input[name*="[issue_no]"]').val() || '#' + id),
+                title: String($(this).find('[name*="[content]"]').val() || '').trim(),
+                beforePct: t ? Number(t.percent) || 0 : null,
+                beforeSt: t ? t.status || '' : '',
+                pct,
+                st: pct >= 100 ? 'completed' : pct <= 0 ? 'new' : 'doing'
+            };
+        }).get();
+        if (!rows.length) {
+            Swal.fire({ icon: 'info', title: 'Chưa có task WePRO', text: 'Thêm task bằng "Chọn task từ WePRO" trước.', buttonsStyling: false, customClass: WEPRO_SWAL_CLASS });
+            return;
+        }
+        const byId = new Map(rows.map(r => [r.id, r]));
         Swal.fire({
-            title: 'Prompt AI tạo multi tasks',
-            html: `<p class="dr-modal-note">Prompt này đã gắn sẵn dự án <b>${escapeHtml($('#project').val() || '')}</b> và ngày <b>${escapeHtml(formatDisplayDate($('#reportDate').val()))}</b>.
-                <br>Copy prompt → dán vào AI đang làm việc cùng bạn (Claude, ChatGPT, agent trong IDE...) → nó đọc lại cuộc trò chuyện hôm nay và trả về danh sách task.
-                <br>Chép kết quả đó dán vào nút <b>Nhập nhiều dòng</b>, form sẽ tự tách thành từng dòng task.</p>
-                <textarea id="aiTaskPromptText" class="dr-modal-field" readonly>${escapeHtml(prompt)}</textarea>`,
+            title: 'Cập nhật task WePRO',
+            html: '<p class="dr-modal-note">Sửa % và trạng thái, tick task cần cập nhật. Dòng không đổi so với WePRO để trống tick.</p>'
+                + '<div id="weproProgList" class="dr-wepro-list">' + rows.map(weproProgRowHtml).join('') + '</div>',
             buttonsStyling: false,
-            customClass: {
-                popup: 'dr-swal',
-                title: 'dr-swal-title',
-                htmlContainer: 'dr-swal-html',
-                actions: 'dr-modal-actions',
-                confirmButton: 'dr-modal-confirm',
-                cancelButton: 'dr-modal-cancel',
-                validationMessage: 'dr-modal-validation'
-            },
+            customClass: $.extend({}, WEPRO_SWAL_CLASS, { popup: 'dr-swal dr-swal-wide' }),
             showCancelButton: true,
-            confirmButtonText: 'Copy prompt',
+            confirmButtonText: 'Cập nhật lên WePRO',
             cancelButtonText: 'Đóng',
+            showLoaderOnConfirm: true,
+            allowOutsideClick: () => !Swal.isLoading(),
             didOpen: function () {
-                $('#aiTaskPromptText').trigger('select');
+                const $list = $('#weproProgList');
+                $list.find('.dr-prog-row').each(function () { weproProgSync($(this), byId.get(Number($(this).data('id')))); });
+                const rowOf = el => { const $row = $(el).closest('.dr-prog-row'); return [$row, byId.get(Number($row.data('id')))]; };
+                $list.on('input', '.dr-prog-range', function () { const [$row, r] = rowOf(this); $row.find('.dr-prog-pct').val(this.value); weproProgSync($row, r); });
+                $list.on('input change', '.dr-prog-pct', function () { const [$row, r] = rowOf(this); $row.find('.dr-prog-range').val(this.value); weproProgSync($row, r); });
+                $list.on('click', '.dr-prog-st .dr-chip', function () {
+                    const [$row, r] = rowOf(this);
+                    $(this).addClass('is-active').siblings().removeClass('is-active');
+                    if ($(this).data('v') === 'completed') $row.find('.dr-prog-pct, .dr-prog-range').val(100);
+                    weproProgSync($row, r);
+                });
+                // Like WePRO's own dialog: at 0% AI there is nothing to ask about purposes.
+                $list.on('click', '.dr-prog-aipct .dr-chip', function () {
+                    $(this).addClass('is-active').siblings().removeClass('is-active');
+                    $(this).closest('.dr-prog-row').css('border-color', '').find('.dr-prog-aipur-wrap').toggleClass('hidden', Number($(this).data('v')) === 0);
+                });
+                $list.on('click', '.dr-prog-aipur .dr-chip', function () { $(this).toggleClass('is-active'); $(this).closest('.dr-prog-row').css('border-color', ''); });
             },
             preConfirm: function () {
-                const value = $('#aiTaskPromptText').val();
-                if (navigator.clipboard && window.isSecureContext) {
-                    return navigator.clipboard.writeText(value).then(function () {
-                        return true;
-                    }).catch(function () {
-                        return false;
-                    });
-                }
-
-                $('#aiTaskPromptText').trigger('select');
-                return document.execCommand('copy');
+                const picked = [];
+                let missingAi = 0;
+                $('#weproProgList .dr-prog-row').each(function () {
+                    if (!$(this).find('.dr-wlog-check').prop('checked')) return;
+                    const r = byId.get(Number($(this).data('id')));
+                    const v = weproProgRead($(this));
+                    const completing = v.st === 'completed' && r.beforeSt !== 'completed';
+                    if (Number(v.aiPct) === 0) v.aiPurposes = [];
+                    if (completing && (v.aiPct === undefined || (Number(v.aiPct) !== 0 && !v.aiPurposes.length))) { missingAi++; $(this).css('border-color', '#dc2626'); }
+                    picked.push($.extend({ id: r.id, completing, sendStatus: v.st !== r.beforeSt }, v));
+                });
+                if (!picked.length) { Swal.showValidationMessage('Tick ít nhất 1 task.'); return false; }
+                if (missingAi) { Swal.showValidationMessage(missingAi + ' task chọn Xong còn thiếu khảo sát AI.'); return false; }
+                const data = { csrf_token: weproCsrf(), project, action: 'update' };
+                picked.forEach(function (p, i) {
+                    data['tasks[' + i + '][id]'] = p.id;
+                    data['tasks[' + i + '][task_percent]'] = p.pct;
+                    if (p.sendStatus) data['tasks[' + i + '][status]'] = p.st;
+                    if (p.completing) {
+                        data['tasks[' + i + '][ai_percentage]'] = p.aiPct;
+                        data['tasks[' + i + '][ai_notes]'] = p.aiNotes;
+                        p.aiPurposes.forEach((pu, j) => { data['tasks[' + i + '][ai_purpose][' + j + ']'] = pu; });
+                    }
+                });
+                // Failures keep the dialog open; rows that went through take WePRO's new values,
+                // so they untick and a retry skips them.
+                return new Promise(function (resolve) {
+                    $.ajax({ url: 'wepro-task-create.php', method: 'POST', dataType: 'json', data })
+                        .done(function (res) {
+                            const results = (res && res.results) || [];
+                            const all = cached ? cached.tasks : null;
+                            results.forEach(function (res1) {
+                                const $row = $('#weproProgList .dr-prog-row[data-id="' + res1.id + '"]');
+                                $row.find('.dr-prog-msg').text(res1.success ? '✓ đã cập nhật' : '✕ ' + res1.message).css('color', res1.success ? '#047857' : '#dc2626');
+                                if (!res1.success) { $row.css('border-color', '#dc2626'); return; }
+                                const p = picked.find(x => x.id === Number(res1.id));
+                                const r = byId.get(Number(res1.id));
+                                r.beforePct = p.pct;
+                                r.beforeSt = p.st;
+                                weproProgSync($row, r);
+                                const t = all && all.find(x => Number(x.id) === r.id);
+                                if (t) { t.percent = p.pct; t.status = p.st; }
+                            });
+                            if (all) weproCacheSet(project, all);
+                            const bad = results.filter(x => !x.success).length;
+                            if (!results.length || bad) {
+                                Swal.showValidationMessage(results.length ? bad + ' task cập nhật lỗi, xem từng dòng rồi thử lại.' : escapeHtml((res && res.message) || 'WePRO không phản hồi.'));
+                                resolve(false);
+                                return;
+                            }
+                            resolve(results.length);
+                        })
+                        .fail(function (xhr) {
+                            Swal.showValidationMessage(escapeHtml(xhr && xhr.status ? 'Gọi wepro-task-create.php lỗi HTTP ' + xhr.status + '.' : 'Mất kết nối.'));
+                            resolve(false);
+                        });
+                });
             }
         }).then(function (result) {
-            if (!result.isConfirmed) {
-                return;
-            }
-
-            Swal.fire({
-                icon: result.value ? 'success' : 'info',
-                title: result.value ? 'Đã copy prompt' : 'Hãy copy thủ công',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 1800
-            });
+            if (result.isConfirmed) Swal.fire({ icon: 'success', title: 'Đã cập nhật ' + result.value + ' task trên WePRO', toast: true, position: 'top-end', showConfirmButton: false, timer: 2200 });
         });
     });
+
     $('#add-task-tomorrow').click(function () {
         const html = taskTomorrowHtml(taskTomorrowIdx++);
         $('#tasks-tomorrow-list').append(html);
@@ -1599,18 +1653,6 @@ Task C | Hoàn thành | 100%"></textarea>`,
         updateTodayTaskState($(this).closest('.task-today-item'));
     });
 
-    $(document).on('change', '.task-today-item select[name*="[status]"]', function () {
-        const $item = $(this).closest('.task-today-item');
-        if ($(this).val() === 'Hoàn thành') {
-            $item.find('select[name*="[progress]"]').val('100');
-        }
-        updateTodayTaskState($item);
-    });
-
-    $(document).on('input change', '.task-today-item input[name*="[estimate]"]', function () {
-        updateTodayTaskState($(this).closest('.task-today-item'));
-    });
-
     // ===== Chất lượng =====
     $('#quality-list .quality-btn').click(function () {
         const val = $(this).data('value');
@@ -1663,12 +1705,11 @@ Task C | Hoàn thành | 100%"></textarea>`,
         const tomorrowTasks = [];
         $('#tasks-today-list .task-today-item').each(function () {
             todayTasks.push({
-                work_type: $(this).find('input[name*="[work_type]"]').val(),
+                work_type: $(this).find('select[name*="[work_type]"]').val(),
                 issue_no: $(this).find('input[name*="[issue_no]"]').val(),
                 content: $(this).find('[name*="[content]"]').val(),
-                status: $(this).find('select[name*="[status]"]').val(),
                 progress: $(this).find('select[name*="[progress]"]').val(),
-                estimate: $(this).find('input[name*="[estimate]"]').val(),
+                hours: $(this).find('input[name*="[hours]"]').val(),
                 wepro_id: $(this).data('weproId') || '',
                 wepro_timelog_url: $(this).data('weproTimelogUrl') || '',
                 wepro_code: $(this).data('weproCode') || ''
@@ -1812,9 +1853,8 @@ Task C | Hoàn thành | 100%"></textarea>`,
                 issue: String(task.issue_no || '').trim() || split.issue,
                 content: split.content,
                 work_type: task.work_type || 'Coding',
-                status: TASK_STATUSES.includes(task.status) ? task.status : DEFAULT_TASK_STATUS,
-                progress: task.progress,
-                estimate: task.estimate
+                status: statusFromProgress(task.progress),
+                progress: task.progress
             };
         });
     }
@@ -1959,6 +1999,15 @@ Task C | Hoàn thành | 100%"></textarea>`,
         const needsTasks = $('#submitGoogleChat, #submitSlack').is(':checked');
         if (needsTasks && !collectDraft().todayTasks.some(task => String(task.content || '').trim())) {
             Swal.fire({ icon: 'warning', title: 'Cảnh báo', text: 'Cần ít nhất 1 task hôm nay!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            return;
+        }
+        const $noActivity = $('#tasks-today-list .task-today-item').filter(function () {
+            return $(this).find('[name*="[content]"]').val().trim() && !$(this).find('select[name*="[work_type]"]').val();
+        }).find('select[name*="[work_type]"]').closest('.dr-select');
+        $noActivity.addClass('is-invalid');
+        if ($noActivity.length) {
+            Swal.fire({ icon: 'warning', title: 'Chọn Activity cho ' + $noActivity.length + ' task', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+            $noActivity[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 

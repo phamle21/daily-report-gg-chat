@@ -166,6 +166,12 @@ if ($action === 'update') {
         if (isset($item['task_percent']) && $item['task_percent'] !== '') {
             $fields['task_percent'] = (string)max(0, min(100, (int)$item['task_percent']));
         }
+        // Same split as on create: WePRO's own inline estimate edit posts hours + minutes.
+        if (isset($item['estimate_hours']) && $item['estimate_hours'] !== '') {
+            $est = max(0, (float)$item['estimate_hours']);
+            $fields['estimate_hours'] = (string)(int)floor($est);
+            $fields['estimate_minutes'] = (string)(int)round(($est - floor($est)) * 60);
+        }
         // Status is a board column; the gantt feed reports the same four as new/doing/on_hold/completed.
         // Completing goes through change-status with the AI-usage survey WePRO demands; the other
         // three statuses are plain board columns.
@@ -175,8 +181,9 @@ if ($action === 'update') {
             if ($item['status'] === 'completed') {
                 $pct = (string)($item['ai_percentage'] ?? '');
                 $purposes = array_values(array_filter(array_map('strval', (array)($item['ai_purpose'] ?? []))));
-                if (!in_array($pct, ['0', '20', '40', '80', '100'], true) || !$purposes) {
-                    $results[] = ['id' => $id, 'success' => false, 'message' => 'Hoàn thành cần khảo sát AI: mức % và ít nhất một mục đích'];
+                // WePRO asks for purposes only when AI helped (> 0%).
+                if (!in_array($pct, ['0', '20', '40', '80', '100'], true) || ($pct !== '0' && !$purposes)) {
+                    $results[] = ['id' => $id, 'success' => false, 'message' => 'Hoàn thành cần khảo sát AI: mức %, và ít nhất một mục đích khi AI > 0%'];
                     continue;
                 }
                 $complete = ['taskId' => (string)$id, 'status' => 'completed', 'percentage' => $pct, 'notes' => trim((string)($item['ai_notes'] ?? '')), '_token' => $token];

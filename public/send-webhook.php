@@ -135,8 +135,9 @@ function parseTasks($arr, $withType = false)
                 }
                 $workType = mb_substr(trim((string)($t['work_type'] ?? '')), 0, 50);
                 $status = trim((string)($t['status'] ?? ''));
+                // The form no longer sends a status; it follows the progress.
                 if (!in_array($status, TASK_STATUSES, true)) {
-                    $status = DEFAULT_TASK_STATUS;
+                    $status = $progress === '' ? DEFAULT_TASK_STATUS : ($progress >= 100 ? 'Hoàn thành' : ($progress <= 0 ? 'Chưa bắt đầu' : DEFAULT_TASK_STATUS));
                 }
 
                 $task = [

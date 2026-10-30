@@ -322,6 +322,7 @@ function e($value)
                 <div class="tk-info" id="edInfo"></div>
                 <div class="tk-field" data-f="heading"><label>Tên VN <button type="button" class="tk-undo">↶ hoàn tác</button></label><input type="text" id="edVn" placeholder="Tên task (VN)"></div>
                 <div class="tk-field" data-f="en_name"><label>Tên EN <button type="button" class="tk-undo">↶ hoàn tác</button></label><input type="text" id="edEn" placeholder="Tên task (EN), tùy chọn"></div>
+                <div class="tk-field" data-f="estimate_hours"><label>Ước lượng (giờ) <button type="button" class="tk-undo">↶ hoàn tác</button></label><input type="number" id="edEst" min="0" step="0.5" placeholder="Nhập số giờ"></div>
                 <div class="tk-field" data-f="task_percent">
                     <label>Tiến độ <button type="button" class="tk-undo">↶ hoàn tác</button></label>
                     <div class="tk-range"><input type="range" id="edRange" min="0" max="100" step="5"><input type="number" id="edPct" min="0" max="100" step="5"></div>

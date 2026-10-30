@@ -114,17 +114,16 @@ function e($value)
             <div class="dr-card" id="card-tasks" style="--dr-accent:#0284c7;--dr-accent-soft:#f0f9ff;">
                 <div class="dr-card-head">
                     <span class="dr-card-badge" aria-hidden="true">1</span>
-                    <span class="dr-card-title">Công việc trong ngày<span class="dr-card-hint">Mỗi task ghi rõ issue, loại việc, trạng thái và tiến độ — để trống Issue nếu không có</span></span>
+                    <span class="dr-card-title">Công việc trong ngày<span class="dr-card-hint">Mỗi task ghi rõ issue, activity và tiến độ — để trống Issue nếu không có</span></span>
                 </div>
                 <div class="dr-card-body">
                 <div class="dr-colhead" aria-hidden="true">
                     <span style="flex:0 0 20px;"></span>
                     <span class="dr-field-label dr-col-issue">Issue</span>
                     <span class="dr-field-label dr-col-title">Task</span>
-                    <span class="dr-field-label dr-col-type">Loại</span>
-                    <span class="dr-field-label dr-col-status">Trạng thái</span>
+                    <span class="dr-field-label dr-col-type">Activity</span>
                     <span class="dr-field-label dr-col-progress">Tiến độ</span>
-                    <span class="dr-field-label dr-col-date">Dự kiến xong</span>
+                    <span class="dr-field-label dr-col-hours" title="Chỉ dùng để điền sẵn khi logtime WePRO">Giờ log</span>
                     <span style="flex:0 0 38px;"></span>
                 </div>
                 <div id="tasks-today-list" class="space-y-2"></div>
@@ -142,15 +141,8 @@ function e($value)
                         ▤ Chọn task WePRO
                     </button>
                     <button type="button" id="wepro-log-bulk" class="dr-action dr-action-sky hidden" title="Logtime lên WePRO cho mọi task đã gắn WePRO">⏱ Logtime WePRO</button>
+                    <button type="button" id="wepro-progress-bulk" class="dr-action dr-action-indigo hidden" title="Cập nhật % và trạng thái các task WePRO trong report">⇪ Cập nhật task WePRO</button>
                     <a id="weproLoggedTotal" class="dr-wlog-badge hidden" href="#" target="_blank" rel="noopener noreferrer" title="Mở trang log giờ trên WePRO"></a>
-                    <button type="button" id="bulk-task-today" class="dr-action dr-action-emerald">
-                        <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
-                        Nhập nhiều dòng
-                    </button>
-                    <button type="button" id="ai-task-prompt" class="dr-action dr-action-violet" title="Lấy prompt để nhờ AI tổng hợp task trong ngày, rồi dán kết quả vào Nhập nhiều dòng">
-                        <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.75 11 7l3.25 1.25L11 9.5l-1.25 3.25L8.5 9.5 5.25 8.25 8.5 7l1.25-3.25ZM16.5 11l.75 2 2 .75-2 .75-.75 2-.75-2-2-.75 2-.75.75-2Z"></path></svg>
-                        Prompt AI
-                    </button>
                     <button type="button" id="clear-tasks-today" class="dr-action dr-action-danger" title="Xóa hết task hôm nay để nhập lại">🗑 Xóa hết</button>
                 </div>
                 </div>
@@ -302,6 +294,7 @@ function e($value)
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+    <script src="wepro-create.js?t=<?= e((string)(@filemtime(__DIR__ . '/wepro-create.js') ?: time())) ?>"></script>
     <script src="main.js?t=<?= e((string)(@filemtime(__DIR__ . '/main.js') ?: time())) ?>"></script>
 </body>
 

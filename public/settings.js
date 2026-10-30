@@ -147,6 +147,10 @@ $(document).ready(function () {
             $out.html(testRow('ok', 'Đã lưu.') + testRow('wait', 'Đang thử đăng nhập WePRO...'));
             $.ajax({ url: 'wepro-timelog.php', method: 'POST', dataType: 'json', data: { csrf_token: csrf(), action: 'ping', project } })
                 .done(function (res) {
+                    if (res && res.login_ok === null) {
+                        $out.html(testRow('ok', 'Đã lưu.') + testRow('err', res.message || ('Project ' + project + ' chưa có WePRO Project ID, điền ở tab Project để kiểm tra đăng nhập.')));
+                        return;
+                    }
                     if (!res || !res.login_ok) {
                         $out.html(testRow('ok', 'Đã lưu.') + testRow('err', 'Đăng nhập thất bại: ' + ((res && res.message) || 'cookie hoặc Basic auth sai.')));
                         return;
