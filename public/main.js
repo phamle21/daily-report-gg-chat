@@ -406,7 +406,7 @@ $(document).ready(function () {
         const next = $(this).val() || '';
         if (next === lastProject) return;
 
-        const hasContent = $('#tasks-today-list .task-today-item, #tasks-tomorrow-list .task-tomorrow-item')
+        const hasContent = $('#tasks-today-list .task-today-item')
             .toArray().some(el => String($(el).find('[name*="[content]"]').val() || '').trim());
         if (hasContent) {
             const result = await Swal.fire({
@@ -431,9 +431,8 @@ $(document).ready(function () {
                 updateProjectLogo();
                 return;
             }
-            $('#tasks-today-list, #tasks-tomorrow-list').empty();
+            $('#tasks-today-list').empty();
             $('#tasks-today-list').append(taskTodayHtml(taskTodayIdx++));
-            $('#tasks-tomorrow-list').append(taskTomorrowHtml(taskTomorrowIdx++));
             scheduleDraftSave();
         }
         lastProject = next;
@@ -610,23 +609,8 @@ $(document).ready(function () {
         $line.removeClass('hidden');
     }
 
-    // ===== TASK NGÀY MAI =====
-    function taskTomorrowHtml(idx) {
-        return `<div class="task-tomorrow-item task-sortable dr-taskrow" data-idx="${idx}">
-            <button type="button" class="task-drag-handle dr-taskrow-drag" title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">⋮⋮</button>
-            <select name="tasks_tomorrow[${idx}][type]" class="dr-input dr-col-type" aria-label="Loại kế hoạch">
-                <option value="new">New</option>
-                <option value="continue">Continue</option>
-            </select>
-            <textarea name="tasks_tomorrow[${idx}][content]" rows="1" class="dr-input dr-col-title" aria-label="Nội dung kế hoạch" placeholder="Nội dung task..."></textarea>
-            <button type="button" class="remove-task dr-taskrow-remove" title="Xóa task" aria-label="Xóa task">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>`;
-    }
-
     // ===== INIT =====
-    let taskTodayIdx = 0, taskTomorrowIdx = 0;
+    let taskTodayIdx = 0;
     $('#tasks-today-list').append(taskTodayHtml(taskTodayIdx++));
     updateTodayTaskState($('#tasks-today-list .task-today-item').last());
     $('#add-task-today').click(function () {
@@ -1013,10 +997,14 @@ $(document).ready(function () {
     $(document).on('click', '.dr-card-close', function () {
         showOptional($(this).closest('.dr-optional').attr('id'), false);
     });
+    $('.dr-tips-btn').on('click', function () {
+        const $tips = $('#' + $(this).attr('aria-controls'));
+        const open = $tips.prop('hidden');
+        $tips.prop('hidden', !open);
+        $(this).attr('aria-expanded', String(open)).find('span').text(open ? 'Ẩn gợi ý' : 'Xem gợi ý');
+    });
     function syncOptionalCards() {
-        const hasPlan = $('#tasks-tomorrow-list [name*="[content]"]').toArray().some(el => String($(el).val() || '').trim());
         const hasNote = String($('#dailyReportForm textarea[name="note"]').val() || '').trim() !== '';
-        if (hasPlan) showOptional('card-plan', true);
         if (hasNote) showOptional('card-share', true);
     }
 
@@ -1593,16 +1581,9 @@ $(document).ready(function () {
         });
     });
 
-    $('#add-task-tomorrow').click(function () {
-        const html = taskTomorrowHtml(taskTomorrowIdx++);
-        $('#tasks-tomorrow-list').append(html);
-        const $lastInput = $('#tasks-tomorrow-list .task-tomorrow-item').last().find('input[type="text"]');
-        $lastInput.focus();
-    });
-
     // ===== SORT TASKS =====
     if (window.Sortable) {
-        ['tasks-today-list', 'tasks-tomorrow-list'].forEach(function (id) {
+        ['tasks-today-list'].forEach(function (id) {
             const list = document.getElementById(id);
             if (!list) return;
             Sortable.create(list, {
@@ -1630,20 +1611,16 @@ $(document).ready(function () {
 
     // ===== REMOVE TASK =====
     $(document).on('click', '.remove-task', async function () {
-        const $item = $(this).closest('.task-today-item, .task-tomorrow-item');
-        const $parent = $item.closest('#tasks-today-list, #tasks-tomorrow-list');
+        const $item = $(this).closest('.task-today-item');
+        const $parent = $item.closest('#tasks-today-list');
         const taskContent = $item.find('[name*="[content]"]').val().trim();
         const result = await confirmDelete('Xóa task?', taskContent ? `“${taskContent}” sẽ bị xóa khỏi báo cáo.` : 'Dòng task này sẽ bị xóa khỏi báo cáo.');
         if (!result.isConfirmed) return;
         $item.fadeOut(200, function () {
             $(this).remove();
             if ($parent.children().length === 0) {
-                if ($parent.attr('id') === 'tasks-today-list') {
-                    $parent.append(taskTodayHtml(taskTodayIdx++));
-                    updateTodayTaskState($parent.children().last());
-                } else {
-                    $parent.append(taskTomorrowHtml(taskTomorrowIdx++));
-                }
+                $parent.append(taskTodayHtml(taskTodayIdx++));
+                updateTodayTaskState($parent.children().last());
             }
             scheduleDraftSave();
         });
@@ -1702,7 +1679,6 @@ $(document).ready(function () {
     // ===== DRAFT & PREVIEW =====
     function collectDraft() {
         const todayTasks = [];
-        const tomorrowTasks = [];
         $('#tasks-today-list .task-today-item').each(function () {
             todayTasks.push({
                 work_type: $(this).find('select[name*="[work_type]"]').val(),
@@ -1715,12 +1691,6 @@ $(document).ready(function () {
                 wepro_code: $(this).data('weproCode') || ''
             });
         });
-        $('#tasks-tomorrow-list .task-tomorrow-item').each(function () {
-            tomorrowTasks.push({
-                type: $(this).find('select[name*="[type]"]').val(),
-                content: $(this).find('[name*="[content]"]').val()
-            });
-        });
         return {
             savedAt: new Date().toISOString(),
             submitGoogleChat: $('#submitGoogleChat').prop('checked'),
@@ -1731,7 +1701,6 @@ $(document).ready(function () {
             dailyResult: $('#dailyResult').val(),
             project: $('#project').val(),
             todayTasks,
-            tomorrowTasks,
             quality: $('#quality').val(),
             spirit: $('#spirit').val(),
             note: $('#dailyReportForm textarea[name="note"]').val(),
@@ -1740,7 +1709,6 @@ $(document).ready(function () {
 
     function hasDraftContent(draft) {
         return draft.todayTasks.some(task => String(task.content || '').trim()) ||
-            draft.tomorrowTasks.some(task => String(task.content || '').trim()) ||
             String(draft.note || draft.dailyResult || '').trim();
     }
 
@@ -1772,19 +1740,10 @@ $(document).ready(function () {
         $('#reportDate').val(draft.reportDate || $('#reportDate')[0].defaultValue).trigger('change');
         syncDateControl($('#reportDate')[0]);
         $('#dailyResult').val(draft.dailyResult || '');
-        $('#tasks-today-list, #tasks-tomorrow-list').empty();
+        $('#tasks-today-list').empty();
         draft.todayTasks.forEach(function (task) { addTodayTask(task); });
         if (!draft.todayTasks.length) {
             $('#tasks-today-list').append(taskTodayHtml(taskTodayIdx++));
-        }
-        (draft.tomorrowTasks || []).forEach(function (task) {
-            $('#tasks-tomorrow-list').append(taskTomorrowHtml(taskTomorrowIdx++));
-            const $item = $('#tasks-tomorrow-list .task-tomorrow-item').last();
-            $item.find('select[name*="[type]"]').val(task.type || 'new');
-            $item.find('[name*="[content]"]').val(task.content || '');
-        });
-        if (!(draft.tomorrowTasks || []).length) {
-            $('#tasks-tomorrow-list').append(taskTomorrowHtml(taskTomorrowIdx++));
         }
         if ($('#project option[value="' + CSS.escape(draft.project || '') + '"]').length) {
             // .val() does not refresh the custom select label, and the change guard must
@@ -1920,15 +1879,11 @@ $(document).ready(function () {
             if (task.estimate) meta.push('dự kiến ' + task.estimate.split('-').slice(1).reverse().join('/'));
             return `<li>- ${issue}${multiline(task.content)} <span class="text-zinc-400">· ${meta.join(' · ')}</span></li>`;
         }).join('');
-        const tomorrow = draft.tomorrowTasks.filter(task => String(task.content || '').trim()).map(function (task) {
-            return `<li>- <strong>[${task.type === 'continue' ? 'Continue' : 'New'}]</strong> ${multiline(task.content)}</li>`;
-        }).join('');
         const section = (title, body) => `<p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">${title}</p>${body}`;
         const reporter = $('#dailyReportForm').attr('data-reporter') || '';
         return `<div class="rounded-lg border border-zinc-200 bg-white p-3 text-left text-[13px] text-zinc-700">
             <div class="border-b border-zinc-100 pb-2"><div class="font-semibold text-zinc-950">📋 Daily Report · ${escapeHtml(draft.project)}</div><div class="mt-0.5 text-xs text-zinc-500">${escapeHtml(formatDisplayDate(draft.reportDate))} (GMT+7)${reporter ? ' · ' + escapeHtml(reporter) : ''}</div></div>
             ${section('📝 Task hôm nay', `<ul class="mt-1 space-y-1">${today || '<li class="text-zinc-400">Chưa có task</li>'}</ul>`)}
-            ${tomorrow ? section('📅 Kế hoạch tiếp theo', `<ul class="mt-1 space-y-1">${tomorrow}</ul>`) : ''}
             ${draft.dailyResult ? section('🎯 Kết quả hôm nay', `<p class="mt-1 whitespace-pre-wrap">${escapeHtml(draft.dailyResult)}</p>`) : ''}
             <div class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-2">
                 <div><div class="text-[11px] text-zinc-500">Chất lượng</div><div>${escapeHtml(GC_QUALITY_LABELS[draft.quality] || GC_QUALITY_LABELS[3])}</div></div>

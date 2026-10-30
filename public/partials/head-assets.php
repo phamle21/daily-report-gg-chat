@@ -61,7 +61,7 @@
         #dailyReportForm input:not([type="hidden"]), #dailyReportForm select, #dailyReportForm textarea,
         #settingsDrawer input:not([type="checkbox"]), #settingsDrawer select, #settingsDrawer textarea {
             min-height:38px;
-            border:1px solid #dedbd7 !important;
+            border:1px solid #cfcbc6 !important;
             border-radius:10px !important;
             background-color:#fff !important;
             box-shadow:0 1px 2px rgba(15,23,42,.03) !important;
@@ -84,9 +84,9 @@
         #dailyReportForm button:active, #settingsDrawer button:active { transform:scale(.985); }
         .dr-select { position:relative; min-width:0; }
         .dr-select.is-open { z-index:200; }
-        #dailyReportForm > div:has(.dr-select.is-open), .task-today-item:has(.dr-select.is-open), .task-tomorrow-item:has(.dr-select.is-open) { z-index:190; }
+        #dailyReportForm > div:has(.dr-select.is-open), .task-today-item:has(.dr-select.is-open) { z-index:190; }
         .dr-select-native { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
-        .dr-select-trigger { display:flex; width:100%; min-height:38px; align-items:center; justify-content:space-between; gap:8px; border:1px solid #dedbd7; border-radius:10px; background:#fff; padding:0 10px 0 12px; color:#292524; font-size:14px; box-shadow:0 1px 2px rgba(15,23,42,.03); text-align:left; }
+        .dr-select-trigger { display:flex; width:100%; min-height:38px; align-items:center; justify-content:space-between; gap:8px; border:1px solid #cfcbc6; border-radius:10px; background:#fff; padding:0 10px 0 12px; color:#292524; font-size:14px; box-shadow:0 1px 2px rgba(15,23,42,.03); text-align:left; }
         .dr-select-trigger:hover { background:#fafaf9; }
         .dr-select-trigger:focus { outline:none; border-color:#a8a29e; box-shadow:0 0 0 3px rgba(120,113,108,.1); }
         .dr-select-caret { color:#a8a29e; transition:transform .16s ease; }
@@ -100,7 +100,7 @@
         .dr-date.is-open { z-index:210; }
         #dailyReportForm > div:has(.dr-date.is-open), .task-today-item:has(.dr-date.is-open) { z-index:200; }
         .dr-date-native { position:absolute !important; width:1px !important; height:1px !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; border:0 !important; }
-        .dr-date-trigger { display:flex; width:100%; min-height:38px; align-items:center; justify-content:space-between; gap:8px; border:1px solid #dedbd7; border-radius:10px; background:#fff; padding:0 10px 0 12px; color:#292524; font-size:13px; text-align:left; box-shadow:0 1px 2px rgba(15,23,42,.03); }
+        .dr-date-trigger { display:flex; width:100%; min-height:38px; align-items:center; justify-content:space-between; gap:8px; border:1px solid #cfcbc6; border-radius:10px; background:#fff; padding:0 10px 0 12px; color:#292524; font-size:13px; text-align:left; box-shadow:0 1px 2px rgba(15,23,42,.03); }
         .dr-date-trigger:hover { background:#fafaf9; }
         .dr-date-trigger:focus { outline:none; border-color:#a8a29e; box-shadow:0 0 0 3px rgba(120,113,108,.1); }
         .dr-date-placeholder { color:#a8a29e; }
@@ -198,12 +198,18 @@
         }
 
         /* ===== Section cards: neutral surface + colored accent so sections stay distinct ===== */
-        .dr-card { position:relative; overflow:hidden; border:1px solid #d4d4d8; border-left:4px solid var(--dr-accent,#a1a1aa); border-radius:12px; background:#fff; box-shadow:0 1px 2px rgba(24,24,27,.08),0 10px 28px rgba(24,24,27,.10); }
-        .dr-card-head { display:flex; align-items:center; gap:10px; border-bottom:1px solid #f4f4f5; background:var(--dr-accent-soft,#fafafa); padding:10px 14px; }
-        .dr-card-badge { display:flex; height:26px; width:26px; flex-shrink:0; align-items:center; justify-content:center; border-radius:8px; background:var(--dr-accent,#a1a1aa); color:#fff; font-size:12px; font-weight:700; }
-        .dr-card-title { color:#18181b; font-size:14px; font-weight:650; line-height:1.2; }
-        .dr-card-hint { display:block; margin-top:2px; color:#71717a; font-size:11px; font-weight:400; }
-        .dr-card-body { padding:12px 14px; }
+        .dr-card { position:relative; overflow:hidden; border:1px solid #d6d3d1; border-radius:14px; background:#fff; box-shadow:0 1px 2px rgba(28,25,23,.04),0 12px 32px -16px rgba(28,25,23,.18); }
+        .dr-card-head { display:flex; align-items:center; gap:12px; border-bottom:1px solid #d6d3d1; background:#e7e5e4; padding:14px 18px; }
+        .dr-card-badge { display:flex; height:26px; width:26px; flex-shrink:0; align-items:center; justify-content:center; border:1px solid #1c1917; border-radius:999px; background:#1c1917; color:#fff; font-size:12px; font-weight:700; }
+        .dr-card-title { color:#1c1917; font-size:15px; font-weight:700; line-height:1.25; letter-spacing:-.005em; }
+        .dr-card-hint { display:block; margin-top:3px; color:#57534e; font-size:11.5px; font-weight:400; letter-spacing:0; }
+        .dr-card-body { padding:16px 18px; }
+        .dr-tips-btn { display:inline-flex; height:22px; align-items:center; gap:4px; margin-left:6px; vertical-align:1px; border:1px solid #fcd34d; border-radius:999px; background:#fffbeb; padding:0 9px; color:#92400e; font-size:11.5px; font-weight:600; letter-spacing:0; cursor:pointer; box-shadow:0 1px 2px rgba(146,64,14,.08); }
+        .dr-tips-btn:hover { border-color:#f59e0b; background:#fef3c7; }
+        .dr-tips-btn[aria-expanded="true"] { border-color:#92400e; background:#92400e; color:#fff; }
+        .dr-callout-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+        .dr-callout .dr-tips { margin:8px 0 0; background:#fff; }
+        .dr-tips { margin:0 0 12px; padding:10px 14px 10px 30px; border:1px solid #efeeec; border-radius:10px; background:#fafaf9; color:#57534e; font-size:12.5px; line-height:1.7; list-style:disc; }
 
         /* ===== Action buttons: always tinted/filled, never white — inputs are the white ones ===== */
         .dr-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; border-top:1px dashed #e4e4e7; padding-top:10px; }
@@ -231,8 +237,8 @@
         .dr-progress-step { display:flex; align-items:center; gap:8px; border:1px solid #d4d4d8; border-radius:10px; background:#fff; padding:8px 12px; font-size:13px; font-weight:600; color:#52525b; text-align:left; cursor:pointer; }
         .dr-progress-step:hover { border-color:#a1a1aa; color:#18181b; }
         .dr-progress-num { display:flex; height:24px; width:24px; flex-shrink:0; align-items:center; justify-content:center; border-radius:999px; background:#e4e4e7; color:#3f3f46; font-size:12px; font-weight:700; }
-        .dr-progress-step.is-done { color:#047857; border-color:#a7f3d0; background:#f0fdf4; }
-        .dr-progress-step.is-done .dr-progress-num { background:#059669; color:#fff; }
+        .dr-progress-step.is-done { color:#1c1917; border-color:#e7e5e4; background:#fafaf9; }
+        .dr-progress-step.is-done .dr-progress-num { background:#1c1917; color:#fff; }
         @media (max-width:640px) { .dr-progress-step { font-size:12px; padding:8px; } }
         .dr-optional-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:0 2px; }
         .dr-optional-label { font-size:12.5px; font-weight:600; color:#3f3f46; }
@@ -371,8 +377,9 @@
         /* Popup overlay: darker and blurred so the page behind reads as inactive */
         .swal2-container.swal2-backdrop-show, .swal2-container.swal2-noanimation { background:rgba(24,24,27,.62) !important; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
         /* Toasts carry swal2-backdrop-show too; without this they get the dim overlay above. */
-        .swal2-container.swal2-no-backdrop { background:transparent !important; backdrop-filter:none; -webkit-backdrop-filter:none; pointer-events:none; }
-        .swal2-container.swal2-no-backdrop .swal2-toast { pointer-events:auto; }
+        /* SweetAlert2 v11 does not mark toasts swal2-no-backdrop, so match the toast itself. */
+        .swal2-container.swal2-no-backdrop, .swal2-container:has(> .swal2-toast) { background:transparent !important; backdrop-filter:none; -webkit-backdrop-filter:none; pointer-events:none; }
+        .swal2-container.swal2-no-backdrop .swal2-toast, .swal2-container > .swal2-toast { pointer-events:auto; }
         /* ===== WePRO task picker ===== */
         .dr-swal-wide { width:min(94vw, 860px) !important; }
         .dr-wepro-tools { position:sticky; top:0; z-index:2; display:flex; flex-direction:column; gap:8px; margin-bottom:8px; padding-bottom:8px; background:#fff; border-bottom:1px solid #e4e4e7; }
@@ -467,8 +474,9 @@
         .dr-wepro-pct.is-done { color:#047857; } .dr-wepro-pct.is-done .dr-wepro-pct-bar i { background:#059669; }
 
         /* ===== Task rows: one task per line, columns line up with .dr-colhead ===== */
-        .dr-taskrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border:1px solid #e4e4e7; border-radius:10px; background:#fafafa; padding:8px; }
-        .dr-taskrow:focus-within { border-color:#a1a1aa; background:#fff; box-shadow:0 0 0 3px rgba(24,24,27,.06); }
+        .dr-taskrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border:1px solid #e2e0dc; border-radius:10px; background:#f4f3f1; padding:8px; }
+        .dr-taskrow:hover { border-color:#cfcbc6; }
+        .dr-taskrow:focus-within { border-color:#a8a29e; background:#fff; box-shadow:0 0 0 3px rgba(28,25,23,.06); }
         .dr-col-issue { flex:0 0 108px; width:108px; }
         .dr-col-title { flex:1 1 220px; min-width:0; }
         .dr-col-type { flex:0 0 128px; width:128px; }
@@ -481,7 +489,7 @@
             .dr-col-title { flex-basis:100%; }
             .dr-col-issue, .dr-col-type, .dr-col-progress, .dr-col-hours { flex:1 1 120px; width:auto; }
         }
-        .dr-field-label { color:#71717a; font-size:11px; font-weight:600; letter-spacing:.01em; }
+        .dr-field-label { color:#57534e; font-size:11px; font-weight:600; letter-spacing:.01em; }
         .dr-taskrow-wepro { flex-basis:100%; display:flex; align-items:center; gap:6px; padding-left:2px; }
         .dr-taskrow-wepro.hidden { display:none; }
         .dr-taskrow-wepro .wepro-timelog { font-size:11px; font-weight:650; color:#4f46e5; text-decoration:none; border-bottom:1px dashed #c7d2fe; }
@@ -497,12 +505,12 @@
         .dr-input:focus { outline:none; }
 
         /* ===== Callout: giữ ô tự đánh giá khỏi bị lướt qua ===== */
-        .dr-callout { margin-top:12px; border:1px solid #fde68a; border-left:4px solid #f59e0b; border-radius:10px; background:#fffbeb; padding:10px 12px; }
-        .dr-callout-label { display:flex; align-items:center; gap:8px; color:#92400e; font-size:13px; font-weight:650; }
-        .dr-callout-tag { border-radius:999px; background:#fef3c7; padding:1px 7px; color:#b45309; font-size:10px; font-weight:600; }
-        .dr-callout-hint { margin-top:2px; color:#a16207; font-size:11px; }
+        .dr-callout { margin-top:14px; border:1px solid #efeeec; border-radius:12px; background:#fafaf9; padding:12px 14px; }
+        .dr-callout-label { display:flex; align-items:center; gap:8px; color:#1c1917; font-size:13px; font-weight:650; }
+        .dr-callout-tag { border-radius:999px; background:#f0efed; padding:1px 7px; color:#78716c; font-size:10px; font-weight:600; }
+        .dr-callout-hint { margin-top:2px; color:#a8a29e; font-size:11px; }
         .dr-callout-input { margin-top:8px; resize:vertical; }
-        .dr-callout-foot { margin-top:4px; text-align:right; color:#b45309; font-size:10px; }
+        .dr-callout-foot { margin-top:4px; text-align:right; color:#a8a29e; font-size:10px; }
 
         /* ===== Toggle switch cho khối "Gửi đến" ===== */
         .dr-switch-list { display:flex; flex-direction:column; gap:6px; }

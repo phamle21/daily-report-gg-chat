@@ -148,23 +148,6 @@ function e($value)
                 </div>
             </div>
 
-            <!-- Kế hoạch tiếp theo -->
-            <div class="dr-card dr-optional hidden" id="card-plan" style="--dr-accent:#4f46e5;--dr-accent-soft:#eef2ff;">
-                <div class="dr-card-head">
-                    <span class="dr-card-badge" aria-hidden="true">→</span>
-                    <span class="dr-card-title">Kế hoạch tiếp theo<span class="dr-card-hint">Tùy chọn — việc dự kiến cho buổi làm việc kế tiếp, không nhất thiết là ngày mai</span></span>
-                </div>
-                <div class="dr-card-body">
-                    <div id="tasks-tomorrow-list" class="space-y-2"></div>
-                    <div class="dr-actions">
-                        <button type="button" id="add-task-tomorrow" class="dr-action dr-action-primary">
-                            <svg class="dr-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"></path></svg>
-                            Thêm task
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             <!-- Self evaluation -->
             <div class="dr-card" id="card-review" style="--dr-accent:#d97706;--dr-accent-soft:#fffbeb;">
                 <div class="dr-card-head">
@@ -205,8 +188,14 @@ function e($value)
                         </div>
                         <input type="hidden" name="quality" id="quality" required>
                         <div class="dr-callout">
-                            <label for="dailyResult" class="dr-callout-label">Tự đánh giá ngắn gọn<span class="dr-callout-tag">tùy chọn</span></label>
+                            <div class="dr-callout-row"><label for="dailyResult" class="dr-callout-label">Tự đánh giá ngắn gọn<span class="dr-callout-tag">tùy chọn</span></label><button type="button" class="dr-tips-btn" aria-controls="resultTips" aria-expanded="false" title="Bấm để xem gợi ý nên viết gì">💡 <span>Xem gợi ý</span></button></div>
                             <p class="dr-callout-hint">Một câu về kết quả và chất lượng công việc hôm nay — phần này hiện ngay trong báo cáo gửi đi.</p>
+                            <ul class="dr-tips" id="resultTips" hidden>
+                                <li>Hôm nay hoàn thành được gì, tới mức nào? (VD: xong màn đơn hàng, đã test trên local)</li>
+                                <li>Chất lượng ra sao: đã tự test, đã review chưa, còn lỗi nào đã biết?</li>
+                                <li>Có việc nào trễ so với dự kiến? Vì sao?</li>
+                                <li>Việc tiếp theo là gì, đang chờ ai xác nhận?</li>
+                            </ul>
                             <textarea name="daily_result" id="dailyResult" maxlength="2000" rows="2" class="dr-callout-input w-full px-3 py-2 text-sm" placeholder="VD: Đã xử lý xong lỗi chính, đang kiểm tra lại trên Prod."></textarea>
                             <p class="dr-callout-foot"><span id="dailyResultCount">0</span>/2000 ký tự</p>
                         </div>
@@ -231,16 +220,21 @@ function e($value)
             <div class="dr-card dr-optional hidden" id="card-share" style="--dr-accent:#e11d48;--dr-accent-soft:#fff1f2;">
                 <div class="dr-card-head">
                     <span class="dr-card-badge" aria-hidden="true">+</span>
-                    <span class="dr-card-title">Chia sẻ thêm <span class="font-normal text-zinc-500">(nếu có)</span><span class="dr-card-hint">Hãy chia sẻ ngắn gọn điều ảnh hưởng đến cảm xúc hoặc tinh thần và chất lượng công việc của bạn hôm nay.</span></span>
+                    <span class="dr-card-title">Chia sẻ thêm <span class="font-normal text-zinc-500">(nếu có)</span> <button type="button" class="dr-tips-btn" aria-controls="shareTips" aria-expanded="false" title="Bấm để xem gợi ý nên viết gì">💡 <span>Xem gợi ý</span></button><span class="dr-card-hint">Hãy chia sẻ ngắn gọn điều ảnh hưởng đến cảm xúc hoặc tinh thần và chất lượng công việc của bạn hôm nay.</span></span>
                 </div>
                 <div class="dr-card-body">
-                <textarea name="note" class="min-h-20 w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" rows="2" placeholder="VD: Hôm nay họp nhiều nên ít thời gian code, tinh thần vẫn ổn."></textarea>
+                <ul class="dr-tips" id="shareTips" hidden>
+                    <li>Hôm nay có gì vướng? (thiếu thông tin, chờ người khác, môi trường lỗi…)</li>
+                    <li>Cần ai hỗ trợ, hoặc cần quyết định gì?</li>
+                    <li>Điều gì làm bạn vui hoặc mệt hôm nay?</li>
+                    <li>Có đề xuất gì về quy trình, công cụ, cách làm việc?</li>
+                </ul>
+                <textarea name="note" class="min-h-20 w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-zinc-950 shadow-button placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" rows="3" placeholder="Viết ngắn gọn. Chưa biết viết gì? Bấm 💡 Xem gợi ý ở tiêu đề."></textarea>
                 </div>
             </div>
 
             <div class="dr-optional-bar" id="optionalBar">
                 <span class="dr-optional-label">Thêm phần tuỳ chọn:</span>
-                <button type="button" class="dr-chip" data-optional="card-plan">＋ Kế hoạch tiếp theo</button>
                 <button type="button" class="dr-chip" data-optional="card-share">＋ Chia sẻ thêm</button>
             </div>
 
