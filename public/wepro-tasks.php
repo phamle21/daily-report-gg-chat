@@ -243,9 +243,17 @@ foreach ($tasks as $i => $task) {
 }
 $gantt = fetchGantt($baseUrl, $projectId, $cookie, (string)($wepro['basic_user'] ?? ''), (string)($wepro['basic_pass'] ?? ''));
 $mapped = 0;
+$orphaned = 0;
 foreach ($tasks as $i => $task) {
     $g = $gantt[$task['id']] ?? null;
     if (!$g) {
+        continue;
+    }
+    // Deleting a parent on WePRO leaves its children in this list, though their pages 404.
+    // The gantt feed drops the deleted parent, so a child pointing at a missing parent is dead.
+    if ($g['parent'] > 0 && !isset($gantt[$g['parent']])) {
+        unset($tasks[$i]);
+        $orphaned++;
         continue;
     }
     $tasks[$i]['status'] = $g['status'];
@@ -254,6 +262,7 @@ foreach ($tasks as $i => $task) {
         $mapped++;
     }
 }
+$tasks = array_values($tasks);
 
 $me = fetchMe($baseUrl, $projectId, $cookie, (string)($wepro['basic_user'] ?? ''), (string)($wepro['basic_pass'] ?? ''));
 echo json_encode([

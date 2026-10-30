@@ -54,6 +54,14 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
         .st-step.is-active .st-step-num { background:#18181b; color:#fff; }
         .st-step-title { display:block; font-size:13px; font-weight:700; color:#18181b; }
         .st-step-sub { display:block; font-size:11px; color:#71717a; }
+        .st-cookie { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:10px; }
+        @media (max-width:700px) { .st-cookie { grid-template-columns:1fr; } }
+        .st-sublabel { display:block; margin-bottom:4px; font-size:11.5px; font-weight:600; color:#71717a; }
+        .st-mono { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px; }
+        .st-copywrap { position:relative; }
+        .st-copywrap .st-input { padding-right:62px; }
+        .st-copy { position:absolute; right:6px; top:50%; transform:translateY(-50%); height:28px; border:1px solid #d4d4d8; border-radius:7px; background:#fafafa; padding:0 9px; font-size:11.5px; font-weight:600; color:#3f3f46; cursor:pointer; }
+        .st-copy:hover { border-color:#18181b; color:#18181b; }
         .st-saved { margin-left:6px; border-radius:999px; background:#d1fae5; color:#065f46; padding:1px 8px; font-size:10.5px; font-weight:700; }
         .st-howto { margin-top:8px; border:1px dashed #d4d4d8; border-radius:10px; padding:8px 12px; background:#fafafa; font-size:12.5px; color:#3f3f46; }
         .st-howto summary { cursor:pointer; font-weight:600; }
@@ -246,17 +254,30 @@ $doneWepro = !$firstRun && (empty($wepro['enabled']) || trim((string)($wepro['re
                             <input type="password" name="wepro_basic_pass" autocomplete="new-password" class="st-input" placeholder="<?= !empty($wepro['basic_pass']) ? 'Để trống nếu giữ nguyên' : 'password' ?>" value="">
                         </div>
                     </div>
+                    <?php $cookieName = preg_replace('/=.*/s', '', (string)($wepro['remember_cookie'] ?? '')); ?>
                     <div class="st-field">
-                        <label class="st-label">Cookie đăng nhập WePRO <?= !empty($wepro['remember_cookie']) ? '<span class="st-saved">đã lưu · ' . e(preg_replace('/=.*/', '', (string)$wepro['remember_cookie'])) . '</span>' : '' ?></label>
-                        <textarea name="wepro_remember_cookie" id="weproCookie" rows="3" autocomplete="off" class="st-input" placeholder="<?= !empty($wepro['remember_cookie']) ? 'Để trống nếu giữ nguyên. Dán cookie mới vào đây để thay.' : 'Dán vào đây: remember_web_xxx=eyJpdiI6...' ?>"></textarea>
-                        <p class="st-help" id="weproCookieHint">Dán nguyên dòng <b>Cookie:</b> từ DevTools cũng được, app tự lọc ra phần <b>remember_web_…</b>.</p>
+                        <label class="st-label">Cookie đăng nhập WePRO <?= !empty($wepro['remember_cookie']) ? '<span class="st-saved">đã lưu</span>' : '' ?></label>
+                        <div class="st-cookie">
+                            <div>
+                                <span class="st-sublabel">Key (Name)</span>
+                                <div class="st-copywrap">
+                                    <input name="wepro_cookie_name" id="weproCookieName" autocomplete="off" spellcheck="false" class="st-input st-mono" placeholder="remember_web_…" value="<?= e($cookieName) ?>">
+                                    <button type="button" class="st-copy" data-copy="#weproCookieName" title="Copy key">Copy</button>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="st-sublabel">Value</span>
+                                <textarea name="wepro_cookie_value" id="weproCookie" rows="2" autocomplete="off" spellcheck="false" class="st-input st-mono" placeholder="<?= !empty($wepro['remember_cookie']) ? 'Để trống nếu giữ nguyên. Dán value mới vào đây để thay.' : 'Dán value: eyJpdiI6...' ?>"></textarea>
+                            </div>
+                        </div>
+                        <p class="st-help" id="weproCookieHint">Copy từng cột <b>Name</b> và <b>Value</b> trong DevTools vào hai ô. Dán nguyên <code>remember_web_…=…</code> hoặc cả dòng <b>Cookie:</b> vào ô Value cũng được, app tự tách.</p>
                         <details class="st-howto">
                             <summary>Cách lấy cookie (30 giây)</summary>
                             <ol>
                                 <li>Mở WePRO trong trình duyệt, đã đăng nhập (có tick "Ghi nhớ").</li>
                                 <li>Bấm <b>F12</b> → tab <b>Application</b> (Edge/Chrome) → <b>Cookies</b> → chọn <code>https://wepro.rcvn.work</code>.</li>
-                                <li>Tìm dòng tên bắt đầu bằng <b>remember_web_</b>. Nháy đúp vào ô <b>Value</b>, Ctrl+A, Ctrl+C.</li>
-                                <li>Dán vào ô trên dạng <code>remember_web_…=giá_trị</code>, hoặc dán nguyên dòng header <code>Cookie:</code> từ tab Network.</li>
+                                <li>Tìm dòng tên bắt đầu bằng <b>remember_web_</b>.</li>
+                                <li>Nháy đúp ô <b>Name</b>, Ctrl+C, dán vào ô <b>Key</b>. Nháy đúp ô <b>Value</b>, Ctrl+A, Ctrl+C, dán vào ô <b>Value</b>.</li>
                             </ol>
                             <p>Cookie này sống nhiều tháng. Chỉ phải lấy lại khi bạn bấm Đăng xuất trên WePRO hoặc đổi mật khẩu.</p>
                         </details>

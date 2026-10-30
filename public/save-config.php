@@ -61,6 +61,24 @@ function keepSecret($posted, $stored)
     return $posted === '' ? (string)($stored ?? '') : $posted;
 }
 
+// The form sends the cookie as key + value; the rest of the app keeps using "key=value".
+// An empty value keeps the stored cookie, even if the key field was edited.
+function weproCookie($name, $value, $stored)
+{
+    $name = trim(clean($name));
+    $value = trim(clean($value));
+    if ($value === '') {
+        return (string)($stored ?? '');
+    }
+    if (preg_match('/(remember_web_[A-Za-z0-9]+)\s*[=\t]\s*([^;\s]+)/', $value, $m)) {
+        return $m[1] . '=' . $m[2];
+    }
+    if ($name === '') {
+        $name = preg_replace('/=.*/s', '', (string)($stored ?? ''));
+    }
+    return $name !== '' ? $name . '=' . $value : $value;
+}
+
 $config = [
     'reporter' => mb_substr(clean($_POST['reporter'] ?? ''), 0, 100),
     'default_project' => $defaultProject,
@@ -70,7 +88,7 @@ $config = [
         'base_url' => rtrim(clean($_POST['wepro_base_url'] ?? ''), '/'),
         'basic_user' => clean($_POST['wepro_basic_user'] ?? ''),
         'basic_pass' => keepSecret($_POST['wepro_basic_pass'] ?? '', $existingWepro['basic_pass'] ?? ''),
-        'remember_cookie' => keepSecret($_POST['wepro_remember_cookie'] ?? '', $existingWepro['remember_cookie'] ?? ''),
+        'remember_cookie' => weproCookie($_POST['wepro_cookie_name'] ?? '', $_POST['wepro_cookie_value'] ?? '', $existingWepro['remember_cookie'] ?? ''),
         'include_subtasks' => !empty($_POST['wepro_include_subtasks']),
     ],
     'google_form' => [

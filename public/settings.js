@@ -104,10 +104,10 @@ $(document).ready(function () {
                 markStepDone(1, $('#reporterSetting').val().trim() !== '');
                 markStepDone(2, $('#projectSettingsList .project-name').filter(function () { return $(this).val().trim() !== ''; }).length > 0);
                 const weproOn = $('input[name="wepro_enabled"]').prop('checked');
-                const cookieTyped = $('textarea[name="wepro_remember_cookie"]').val().trim() !== '';
-                const cookieStored = $('textarea[name="wepro_remember_cookie"]').data('stored') === 1;
+                const cookieTyped = $('#weproCookie').val().trim() !== '';
+                const cookieStored = $('#weproCookie').data('stored') === 1;
                 markStepDone(3, !weproOn || cookieTyped || cookieStored);
-                if (cookieTyped) $('textarea[name="wepro_remember_cookie"]').val('').data('stored', 1).attr('placeholder', 'Để trống nếu giữ nguyên. Dán cookie mới vào đây để thay.');
+                if (cookieTyped) $('#weproCookie').val('').data('stored', 1).attr('placeholder', 'Để trống nếu giữ nguyên. Dán value mới vào đây để thay.');
                 if ($('input[name="wepro_basic_pass"]').val() !== '') $('input[name="wepro_basic_pass"]').val('').attr('placeholder', 'Để trống nếu giữ nguyên');
                 toast('success', 'Đã lưu thiết lập');
                 return true;
@@ -120,21 +120,31 @@ $(document).ready(function () {
     $('#settingsForm').on('submit', function (e) { e.preventDefault(); saveSettings(); });
 
     // ===== WePRO =====
-    $('textarea[name="wepro_remember_cookie"]').data('stored', $('textarea[name="wepro_remember_cookie"]').attr('placeholder').indexOf('giữ nguyên') !== -1 ? 1 : 0);
+    $('#weproCookie').data('stored', $('#weproCookie').attr('placeholder').indexOf('giữ nguyên') !== -1 ? 1 : 0);
     function syncWeproFields() { $('#weproFields').toggleClass('is-off', !$('input[name="wepro_enabled"]').prop('checked')); }
     $('input[name="wepro_enabled"]').on('change', syncWeproFields); syncWeproFields();
 
-    // Whatever gets pasted (a Cookie: header, a DevTools row, the bare value), keep only remember_web_*=value.
+    // A pasted "remember_web_x=value", DevTools row or Cookie: header is split into the two fields.
     $('#weproCookie').on('input', function () {
-        const raw = this.value;
-        const m = raw.match(/remember_web_[A-Za-z0-9]+\s*[=\t]\s*([^;\s]+)/);
+        const m = this.value.match(/(remember_web_[A-Za-z0-9]+)\s*[=\t]\s*([^;\s]+)/);
         if (m) {
-            const clean = m[0].replace(/\s*[=\t]\s*/, '=');
-            if (clean !== raw.trim()) { this.value = clean; $('#weproCookieHint').text('Đã lọc ra cookie ' + clean.split('=')[0] + ' từ nội dung bạn dán.'); }
-            else $('#weproCookieHint').text('Cookie hợp lệ: ' + clean.split('=')[0] + '.');
-        } else if (raw.trim() !== '') {
-            $('#weproCookieHint').text('Chưa thấy remember_web_… trong nội dung dán. Kiểm tra lại tên cookie.');
+            $('#weproCookieName').val(m[1]);
+            this.value = m[2];
+            $('#weproCookieHint').text('Đã tách ra key ' + m[1] + ' và value từ nội dung bạn dán.');
         }
+    });
+    // A Name cell copied from DevTools sometimes drags the value along; keep only the key.
+    $('#weproCookieName').on('input', function () {
+        const m = this.value.match(/(remember_web_[A-Za-z0-9]+)\s*[=\t]\s*([^;\s]+)/);
+        if (m) { this.value = m[1]; $('#weproCookie').val(m[2]); }
+    });
+    $('.st-copy').on('click', function () {
+        const $btn = $(this);
+        const text = $($btn.data('copy')).val();
+        if (!text) return;
+        const done = () => { $btn.text('Đã copy'); setTimeout(() => $btn.text('Copy'), 1500); };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done);
+        else { $($btn.data('copy')).trigger('select'); if (document.execCommand('copy')) done(); }
     });
 
     function testRow(cls, text) { return '<div class="row ' + cls + '"><i></i><span>' + escapeHtml(text) + '</span></div>'; }
