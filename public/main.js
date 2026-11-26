@@ -593,6 +593,7 @@ $(document).ready(function () {
         autoGrow($item.find('[name*="[content]"]')[0]);
         setWeproLink($item, task.wepro_id, task.wepro_timelog_url, task.wepro_code);
         updateTodayTaskState($item);
+        syncTodayHoursTotal();
     }
 
     // Rows typed by hand have no WePRO task behind them, so the line stays hidden.
@@ -1036,6 +1037,12 @@ $(document).ready(function () {
         $('#wepro-log-bulk, #wepro-progress-bulk').toggleClass('hidden', !any || $('body').hasClass('dr-wepro-off'));
     }
     new MutationObserver(syncWeproButtons).observe(document.getElementById('tasks-today-list'), { childList: true, subtree: true });
+    function syncTodayHoursTotal() {
+        const total = $('#tasks-today-list input[name*="[hours]"]').toArray().reduce((sum, el) => sum + (Number(el.value) > 0 ? Number(el.value) : 0), 0);
+        $('#todayHoursTotal').text(total > 0 ? 'Tổng ' + formatHours(total) : '').toggleClass('hidden', total <= 0);
+    }
+    new MutationObserver(syncTodayHoursTotal).observe(document.getElementById('tasks-today-list'), { childList: true, subtree: true });
+    $(document).on('input change', '#tasks-today-list input[name*="[hours]"]', syncTodayHoursTotal);
     // Checked per project: the login is shared, the WePRO Project ID is not.
     function checkWeproStatus() {
         const project = $('#project').val() || '';
@@ -1610,12 +1617,22 @@ $(document).ready(function () {
     }
 
     // ===== REMOVE TASK =====
-    $(document).on('click', '.remove-task', async function () {
-        const $item = $(this).closest('.task-today-item');
+    // First click arms the button, a second click within 3s deletes: no confirm popup.
+    function disarmRemove($btn) {
+        clearTimeout($btn.data('armTimer'));
+        $btn.removeClass('is-armed').attr({ title: 'Xóa task', 'aria-label': 'Xóa task' });
+    }
+    $(document).on('click', '.remove-task', function () {
+        const $btn = $(this);
+        if (!$btn.hasClass('is-armed')) {
+            $('.remove-task.is-armed').not($btn).each(function () { disarmRemove($(this)); });
+            $btn.addClass('is-armed').attr({ title: 'Bấm lần nữa để xóa', 'aria-label': 'Bấm lần nữa để xóa' });
+            $btn.data('armTimer', setTimeout(() => disarmRemove($btn), 3000));
+            return;
+        }
+        disarmRemove($btn);
+        const $item = $btn.closest('.task-today-item');
         const $parent = $item.closest('#tasks-today-list');
-        const taskContent = $item.find('[name*="[content]"]').val().trim();
-        const result = await confirmDelete('Xóa task?', taskContent ? `“${taskContent}” sẽ bị xóa khỏi báo cáo.` : 'Dòng task này sẽ bị xóa khỏi báo cáo.');
-        if (!result.isConfirmed) return;
         $item.fadeOut(200, function () {
             $(this).remove();
             if ($parent.children().length === 0) {

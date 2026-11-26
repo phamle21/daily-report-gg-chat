@@ -101,8 +101,31 @@ if ($code !== 200 || $html === '') {
     fail('WePRO không trả form tạo task (HTTP ' . $code . ').');
 }
 
+// Options may carry avatar markup in quoted attributes (data-content), so `>` inside quotes is skipped.
+function assigneeOptions($html)
+{
+    if (!preg_match('/<select[^>]*id="selectAssignee".*?<\/select>/s', $html, $m)) {
+        return [];
+    }
+    preg_match_all('/<option\b((?:[^>"\']|"[^"]*"|\'[^\']*\')*)>(.*?)<\/option>/s', $m[0], $o, PREG_SET_ORDER);
+    $out = [];
+    foreach ($o as $opt) {
+        $id = preg_match('/\bvalue="(\d+)"/', $opt[1], $v) ? (int)$v[1] : 0;
+        if ($id <= 0) {
+            continue;
+        }
+        $label = trim(html_entity_decode(strip_tags($opt[2]), ENT_QUOTES, 'UTF-8'));
+        if ($label === '' && preg_match('/\bdata-content="([^"]*)"/', $opt[1], $c)) {
+            $label = trim(strip_tags(html_entity_decode($c[1], ENT_QUOTES, 'UTF-8')));
+        }
+        $out[] = ['id' => $id, 'name' => $label !== '' ? $label : '#' . $id];
+    }
+    return $out;
+}
+
 $token = preg_match('/name="_token"[^>]*value="([^"]+)"/', $html, $m) ? $m[1] : '';
 $me = preg_match("/#selectAssignee'\)\.val\('(\d+)'\)/", $html, $m) ? (int)$m[1] : 0;
+$assignees = assigneeOptions($html);
 $projectLabel = '';
 if (preg_match('/<input[^>]*name="projectName"[^>]*>/', $html, $m) && preg_match('/value="([^"]*)"/', $m[0], $v)) {
     $projectLabel = html_entity_decode($v[1], ENT_QUOTES, 'UTF-8');
@@ -123,6 +146,7 @@ if ($action === 'form') {
     echo json_encode([
         'success' => true,
         'me' => $me,
+        'assignees' => $assignees,
         'project_id' => (int)$projectId,
         'project_label' => $projectLabel,
         'statuses' => $statuses,
@@ -314,7 +338,7 @@ $common = [
     'sprint_id' => (string)($_POST['sprint_id'] ?? ''),
     'start_date' => (string)($_POST['start_date'] ?? date('Y-m-d')),
     'due_date' => (string)($_POST['due_date'] ?? date('Y-m-d')),
-    'user_id' => (int)($_POST['user_id'] ?? $me),
+    'user_ids' => array_values(array_filter(array_map('intval', (array)($_POST['user_id'] ?? [])), fn ($id) => $id > 0)) ?: [$me],
 ];
 foreach (['start_date', 'due_date'] as $k) {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $common[$k])) {
@@ -361,7 +385,6 @@ foreach (array_values($items) as $i => $item) {
         'storypoint' => (string)max(0, (int)($item['storypoint'] ?? 1)),
         'start_date' => $startDate,
         'due_date' => $dueDate,
-        'user_id[0]' => (string)$common['user_id'],
         'description' => $description,
         'note' => '<p><br></p>',
         'client_id' => '', 'milestone_id' => '', 'sprint_id' => (string)($item['sprint_id'] ?? '') !== '' ? (string)$item['sprint_id'] : $common['sprint_id'], 'pcl' => '',
@@ -371,6 +394,9 @@ foreach (array_values($items) as $i => $item) {
         'mention_user_ids' => '',
         'custom_fields_data[status_2]' => (string)($item['status'] ?? '') !== '' ? (string)$item['status'] : $common['status'],
     ];
+    foreach ($common['user_ids'] as $k => $uid) {
+        $fields['user_id[' . $k . ']'] = (string)$uid;
+    }
     [$body, $code, $err] = weproRequest(
         $baseUrl . '/account/tasks?task_template_id=&taskId=',
         [

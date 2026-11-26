@@ -114,7 +114,6 @@ window.WeproCreate = function (env) {
     function open(opts) {
         opts = opts || {};
         const today = dateToValue(new Date());
-        let form = null;
         let entries = [];
         let created = [];
         function collectItems() {
@@ -163,6 +162,7 @@ window.WeproCreate = function (env) {
                 + '<input type="hidden" id="wcParent" value="0">'
                 + '<div id="wcParentBox" class="dr-wc-pbox" hidden><input type="text" id="wcParentSearch" placeholder="Gõ mã hoặc tên task để tìm..." autocomplete="off"><div id="wcParentList" class="dr-wc-plist" hidden></div></div>'
                 + '</div>'
+                + '<div class="dr-wc-field"><span>👤 Người làm <small>· chọn một hoặc nhiều</small></span><div id="wcAssignees" class="dr-wc-assignees"></div></div>'
                 + '<div class="dr-wc-pane" data-pane="single">'
                 + '<label class="dr-wc-field"><span>Tên task (VN) *</span><input type="text" id="wcHeading" placeholder="VD: [Backoffice] Sửa màn hình đơn hàng"></label>'
                 + '<label class="dr-wc-field"><span>Tên EN (tự dịch từ tên VN, sửa được)</span><input type="text" id="wcEn" placeholder="VD: [Backoffice] Fix order screen"></label>'
@@ -258,15 +258,17 @@ window.WeproCreate = function (env) {
                 $.when(env.createAjax({ action: 'form' }), env.parentList()).done(function (formRes, parents) {
                     const res = Array.isArray(formRes) ? formRes[0] : formRes;
                     if (!res || !res.success) { $('#wcNote').text((res && res.message) || 'Không lấy được form WePRO.'); return; }
-                    form = res;
                     entries = parentEntries(parents || []);
                     formOpts = { statuses: res.statuses || [], sprints: res.sprints || [] };
                     $('#wcStatus').html(statusOptions());
                     $('#wcSprint').append(res.sprints.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join(''));
                     $('#wcRows .dr-wc-row-status').each(function () { $(this).html(statusOptions($(this).val())); });
                     $('#wcRows .dr-wc-row-sprint').each(function () { $(this).html(sprintOptions($(this).val())); });
+                    const people = (res.assignees || []).slice();
+                    if (res.me && !people.some(p => p.id === res.me)) people.unshift({ id: res.me, name: 'Bạn' });
+                    $('#wcAssignees').html(people.map(p => '<label class="dr-wc-assignee"><input type="checkbox" value="' + p.id + '"' + (p.id === res.me ? ' checked' : '') + '><span>' + escapeHtml(p.name) + (p.id === res.me ? ' (bạn)' : '') + '</span></label>').join(''));
                     if (opts.parentId) setParent(Number(opts.parentId));
-                    $('#wcNote').text('Tạo trong project ' + (res.project_label || '') + '. Người làm: bạn.');
+                    $('#wcNote').text('Tạo trong project ' + (res.project_label || '') + '.');
                     $('#wcBody').removeClass('hidden');
                     $('#wcHeading').trigger('focus');
                     Swal.getConfirmButton().disabled = false;
@@ -280,6 +282,8 @@ window.WeproCreate = function (env) {
                     const bad = items.find(it => !it.start_date || !it.due_date || it.start_date > it.due_date);
                     if (bad) { Swal.showValidationMessage('Dòng "' + bad.heading + '": thiếu ngày hoặc bắt đầu sau hạn.'); return false; }
                 } else if (!$('#wcStart').val() || !$('#wcDue').val() || $('#wcStart').val() > $('#wcDue').val()) { Swal.showValidationMessage('Ngày bắt đầu phải nhỏ hơn hoặc bằng hạn.'); return false; }
+                const userIds = $('#wcAssignees input:checked').map(function () { return Number(this.value); }).get();
+                if (!userIds.length) { Swal.showValidationMessage('Chọn ít nhất một người làm.'); return false; }
                 const v = {
                     items,
                     parent_id: Number($('#wcParent').val()) || 0,
@@ -287,7 +291,7 @@ window.WeproCreate = function (env) {
                     sprint_id: $('#wcSprint').val(),
                     start_date: $('#wcStart').val(),
                     due_date: $('#wcDue').val(),
-                    user_id: form ? form.me : 0
+                    user_ids: userIds
                 };
                 // Submit while the form is still open, so a failure leaves everything typed in place.
                 return new Promise(function (resolve) {
@@ -329,7 +333,8 @@ window.WeproCreate = function (env) {
     }
 
     function submit(v) {
-        const data = { action: 'store', parent_id: v.parent_id, priority: 'medium', status: v.status, sprint_id: v.sprint_id, start_date: v.start_date, due_date: v.due_date, user_id: v.user_id };
+        const data = { action: 'store', parent_id: v.parent_id, priority: 'medium', status: v.status, sprint_id: v.sprint_id, start_date: v.start_date, due_date: v.due_date };
+        v.user_ids.forEach(function (id, i) { data['user_id[' + i + ']'] = id; });
         v.items.forEach(function (it, i) {
             data['tasks[' + i + '][heading]'] = it.heading;
             data['tasks[' + i + '][en_name]'] = it.en_name || '';

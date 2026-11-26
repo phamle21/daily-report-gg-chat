@@ -115,6 +115,7 @@ function e($value)
                 <div class="dr-card-head">
                     <span class="dr-card-badge" aria-hidden="true">1</span>
                     <span class="dr-card-title">Công việc trong ngày<span class="dr-card-hint">Mỗi task ghi rõ issue, activity và tiến độ — để trống Issue nếu không có</span></span>
+                    <span id="todayHoursTotal" class="dr-wlog-badge hidden" style="margin-left:auto;" title="Tổng cột Giờ log"></span>
                 </div>
                 <div class="dr-card-body">
                 <div class="dr-colhead" aria-hidden="true">
